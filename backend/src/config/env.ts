@@ -8,6 +8,7 @@ const envSchema = z.object({
   PORT: z.coerce.number().default(4000),
   SUPABASE_URL: z.string().url().optional(),
   SUPABASE_PUBLISHABLE_KEY: z.string().optional(),
+  SUPABASE_ANON_KEY: z.string().optional(),
   SUPABASE_SECRET_KEY: z.string().optional(),
   SUPABASE_DB_URL: z.string().optional(),
   SUPABASE_STORAGE_BUCKET: z.string().default('medication-images'),
@@ -21,6 +22,12 @@ const envSchema = z.object({
     .pipe(z.boolean())
     .catch(true),
   DEMO_PROFILE_ID: z.string().uuid().optional(),
+  ENABLE_DEMO_AUTH: z
+    .string()
+    .optional()
+    .transform((value) => value === 'true')
+    .pipe(z.boolean())
+    .catch(false),
 });
 
 export const env = envSchema.parse(process.env);

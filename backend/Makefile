@@ -2,7 +2,7 @@ SHELL := /bin/bash
 
 MIGRATIONS_DIR := supabase/migrations
 
-.PHONY: help migration-new migration-list migration-up
+.PHONY: help migration-new migration-list migration-up swagger-generate
 
 help:
 	@echo "Targets:"
@@ -46,3 +46,6 @@ migration-up:
 	fi; \
 	echo "Applying migrations from $(MIGRATIONS_DIR) to remote database..."; \
 	supabase db push --db-url "$$SUPABASE_DB_URL"
+
+swagger-generate:
+	@node --import tsx src/shared/docs/generate-openapi.ts
