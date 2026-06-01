@@ -109,7 +109,7 @@ profileRouter.post(
 /**
  * @openapi
  * /profiles/me:
- *   patch:
+ *   put:
  *     tags:
  *       - Profile
  *     summary: Update current user profile
@@ -167,7 +167,7 @@ profileRouter.post(
  *             schema:
  *               $ref: '#/components/schemas/ErrorResponse'
  */
-profileRouter.patch(
+profileRouter.put(
   "/me",
   validateBody(updateProfileBodySchema),
   profileController.updateMe,
