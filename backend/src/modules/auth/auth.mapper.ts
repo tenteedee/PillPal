@@ -26,7 +26,6 @@ export function mapSessionToAuthSessionResponse(
 ): AuthSessionResponse {
   return {
     accessToken: session.access_token,
-    refreshToken: session.refresh_token,
     expiresIn: session.expires_in,
     expiresAt: session.expires_at ?? null,
     tokenType: session.token_type,

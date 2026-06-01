@@ -8,7 +8,6 @@ export type AuthMeResponse = {
 
 export type AuthSessionResponse = {
   accessToken: string;
-  refreshToken: string;
   expiresIn: number;
   expiresAt: number | null;
   tokenType: string;

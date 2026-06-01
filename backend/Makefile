@@ -2,7 +2,7 @@ SHELL := /bin/bash
 
 MIGRATIONS_DIR := supabase/migrations
 
-.PHONY: help migration-new migration-list migration-up swagger-generate
+.PHONY: help migration-new migration-list migration-up swag
 
 help:
 	@echo "Targets:"
@@ -10,7 +10,7 @@ help:
 	@echo "  make migration-list"
 	@echo "  make migration-up"
 
-migration-new:
+migrate-new:
 	@if [ -z "$(name)" ]; then \
 		echo "Usage: make migration-new name=<migration_name>"; \
 		exit 1; \
@@ -27,11 +27,11 @@ migration-new:
 	} > "$$file"; \
 	echo "Created migration: $$file"
 
-migration-list:
+migrate-list:
 	@mkdir -p $(MIGRATIONS_DIR)
 	@find $(MIGRATIONS_DIR) -maxdepth 1 -type f -name '*.sql' | sort
 
-migration-up:
+migrate-up:
 	@if ! command -v supabase >/dev/null 2>&1; then \
 		echo "Supabase CLI is required. Install it first: https://supabase.com/docs/guides/cli"; \
 		exit 1; \
@@ -47,5 +47,5 @@ migration-up:
 	echo "Applying migrations from $(MIGRATIONS_DIR) to remote database..."; \
 	supabase db push --db-url "$$SUPABASE_DB_URL"
 
-swagger-generate:
+swag:
 	@node --import tsx src/shared/docs/generate-openapi.ts
