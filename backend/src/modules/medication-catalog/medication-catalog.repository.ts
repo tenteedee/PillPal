@@ -64,6 +64,14 @@ export class MedicationCatalogRepository {
         strength: payload.strength ?? null,
         dosage_form: payload.dosageForm ?? null,
         manufacturer: payload.manufacturer ?? null,
+        ingredients: payload.ingredients ?? [],
+        route: payload.route ?? null,
+        description: payload.description ?? null,
+        common_uses: payload.commonUses ?? [],
+        warnings: payload.warnings ?? [],
+        contraindications: payload.contraindications ?? [],
+        side_effects: payload.sideEffects ?? [],
+        interaction_notes: payload.interactionNotes ?? [],
       })
       .select('*')
       .single<MedicationCatalogRow>();
@@ -113,6 +121,14 @@ export class MedicationCatalogRepository {
         strength: payload.strength ?? null,
         dosage_form: payload.dosageForm ?? null,
         manufacturer: payload.manufacturer ?? null,
+        ingredients: payload.ingredients ?? [],
+        route: payload.route ?? null,
+        description: payload.description ?? null,
+        common_uses: payload.commonUses ?? [],
+        warnings: payload.warnings ?? [],
+        contraindications: payload.contraindications ?? [],
+        side_effects: payload.sideEffects ?? [],
+        interaction_notes: payload.interactionNotes ?? [],
         updated_at: new Date().toISOString(),
       })
       .eq('id', id)

@@ -71,6 +71,32 @@ medicationCatalogRouter.get('/search', medicationCatalogController.search);
  *               strength: { type: string }
  *               dosageForm: { type: string }
  *               manufacturer: { type: string }
+ *               ingredients:
+ *                 type: array
+ *                 items:
+ *                   type: object
+ *               route: { type: string }
+ *               description: { type: string }
+ *               commonUses:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *               warnings:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *               contraindications:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *               sideEffects:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *               interactionNotes:
+ *                 type: array
+ *                 items:
+ *                   type: string
  *     responses:
  *       201:
  *         description: Created
@@ -134,6 +160,32 @@ medicationCatalogRouter.get('/:id', medicationCatalogController.getById);
  *               strength: { type: string }
  *               dosageForm: { type: string }
  *               manufacturer: { type: string }
+ *               ingredients:
+ *                 type: array
+ *                 items:
+ *                   type: object
+ *               route: { type: string }
+ *               description: { type: string }
+ *               commonUses:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *               warnings:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *               contraindications:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *               sideEffects:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *               interactionNotes:
+ *                 type: array
+ *                 items:
+ *                   type: string
  *     responses:
  *       200:
  *         description: OK
