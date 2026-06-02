@@ -1,3 +1,7 @@
+-- Migration: medications_tables
+-- Created at: 2026-06-01T15:14:58Z
+
+-- Write your SQL below
 create table if not exists medication_catalogs (
   id uuid primary key default gen_random_uuid(),
   name text not null,

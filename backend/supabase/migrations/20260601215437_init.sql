@@ -1,3 +1,7 @@
+-- Migration: init
+-- Created at: 2026-06-01T14:54:37Z
+
+-- Write your SQL below
 create extension if not exists "pgcrypto";
 
 create table if not exists profiles (

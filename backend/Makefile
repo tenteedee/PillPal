@@ -32,7 +32,7 @@ migrate-list:
 	@find $(MIGRATIONS_DIR) -maxdepth 1 -type f -name '*.sql' | sort
 
 migrate-up:
-	@if ! command -v supabase >/dev/null 2>&1; then \
+	@if ! command -v supabase >/dev/null 2>&1 && ! command -v npx >/dev/null 2>&1; then \
 		echo "Supabase CLI is required. Install it first: https://supabase.com/docs/guides/cli"; \
 		exit 1; \
 	fi
@@ -45,7 +45,11 @@ migrate-up:
 		exit 1; \
 	fi; \
 	echo "Applying migrations from $(MIGRATIONS_DIR) to remote database..."; \
-	supabase db push --db-url "$$SUPABASE_DB_URL"
+	if command -v supabase >/dev/null 2>&1; then \
+		supabase db push --db-url "$$SUPABASE_DB_URL"; \
+	else \
+		npx supabase db push --db-url "$$SUPABASE_DB_URL"; \
+	fi
 
 swag:
 	@node --import tsx src/shared/docs/generate-openapi.ts
