@@ -53,42 +53,64 @@ backend/
     └── modules/
         ├── profile/
         │   ├── profile.routes.ts
+        │   ├── profile.controller.ts
         │   ├── profile.service.ts
         │   ├── profile.repository.ts
+        │   ├── profile.mapper.ts
+        │   ├── profile.types.ts
         │   └── profile.schema.ts
         ├── medication/
         │   ├── medication.routes.ts
+        │   ├── medication.controller.ts
         │   ├── medication.service.ts
         │   ├── medication.repository.ts
+        │   ├── medication.mapper.ts
+        │   ├── medication.types.ts
         │   └── medication.schema.ts
         ├── schedule/
         │   ├── schedule.routes.ts
+        │   ├── schedule.controller.ts
         │   ├── schedule.service.ts
         │   ├── schedule.repository.ts
+        │   ├── schedule.mapper.ts
+        │   ├── schedule.types.ts
         │   └── schedule.schema.ts
         ├── daily-plan/
         │   ├── daily-plan.routes.ts
+        │   ├── daily-plan.controller.ts
         │   ├── daily-plan.service.ts
+        │   ├── daily-plan.mapper.ts
+        │   ├── daily-plan.types.ts
         │   └── daily-plan.schema.ts
         ├── safety/
         │   ├── safety.routes.ts
+        │   ├── safety.controller.ts
         │   ├── safety.service.ts
         │   ├── safety.rules.ts
         │   ├── safety.messages.ts
         │   ├── safety.repository.ts
+        │   ├── safety.mapper.ts
+        │   ├── safety.types.ts
         │   └── safety.schema.ts
         ├── intake/
         │   ├── intake.routes.ts
+        │   ├── intke.controller.ts
         │   ├── intake.service.ts
         │   ├── intake.repository.ts
+        │   ├── intake.mapper.ts
+        │   ├── intake.types.ts
         │   └── intake.schema.ts
         ├── ai/
         │   ├── ai.routes.ts
+        │   ├── ai.controller.ts
         │   ├── ai.service.ts
         │   ├── ai.prompts.ts
+        │   ├── ai.mapper.ts
+        │   ├── ai.types.ts
         │   └── ai.schema.ts
         └── upload/
             ├── upload.routes.ts
+            ├── upload.controller.ts
             └── upload.service.ts
 ```
 

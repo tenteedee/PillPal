@@ -16,7 +16,7 @@ import { medicationCatalogRouter } from "./modules/medication-catalog/medication
 import { profileRouter } from "./modules/profile/profile.routes.js";
 import { safetyRouter } from "./modules/safety/safety.routes.js";
 import { scheduleRouter } from "./modules/schedule/schedule.routes.js";
-import { uploadRouter } from "./modules/upload/upload.routes.js";
+import { uploadRouter } from "./modules/static/static.routes.js";
 
 const app = express();
 

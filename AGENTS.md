@@ -110,6 +110,7 @@ Use this repository shape unless the existing repo already has a different struc
 - Use Supabase as the hosted database/auth/storage platform.
 - Use Swagger to generate API Documentation.
 - Get list APIs must include PaginationInput under `backend/src/shared/types/pagination.ts`, as well as filtering query params.
+- All the update APIs MUST be implemented with PUT method.
 - Put all safety rules in `backend/src/modules/safety/safety.rules.ts`.
 - Do not call OpenAI from the safety rule engine.
 - Store safety check logs for demo/history.
