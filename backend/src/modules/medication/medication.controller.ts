@@ -5,26 +5,17 @@ import { ERROR_MESSAGE } from '../../shared/constants/error/error-messages.js';
 import { HTTP_STATUS } from '../../shared/constants/http/http-status.js';
 import { RESPONSE_MESSAGE } from '../../shared/constants/http/response-messages.js';
 import { HttpError } from '../../shared/errors/http-error.js';
+import { parseGetListInput } from '../../shared/utils/list.js';
 import { sendSuccess } from '../../shared/utils/response.js';
 import { ProfileRepository } from '../profile/profile.repository.js';
 import { MedicationRepository } from './medication.repository.js';
+import { medicationGetListInputSchema } from './medication.schema.js';
 import { MedicationService } from './medication.service.js';
 
 const medicationService = new MedicationService(
   new MedicationRepository(),
   new ProfileRepository(),
 );
-
-function toBooleanFlag(value: unknown): boolean | undefined {
-  if (value === 'true') {
-    return true;
-  }
-  if (value === 'false') {
-    return false;
-  }
-
-  return undefined;
-}
 
 function requireMedicationId(value: unknown): string {
   if (typeof value !== 'string' || value.length === 0) {
@@ -41,8 +32,10 @@ function requireMedicationId(value: unknown): string {
 class MedicationController {
   list = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const active = toBooleanFlag(req.query.active);
-      const medications = await medicationService.list(req.userId as string, active);
+      const medications = await medicationService.list(
+        req.userId as string,
+        parseGetListInput(req.query, medicationGetListInputSchema),
+      );
       sendSuccess(res, medications);
     } catch (error) {
       next(error);

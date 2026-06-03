@@ -6,6 +6,8 @@ import { mapMedicationCatalogRowToDto } from './medication-catalog.mapper.js';
 import { MedicationCatalogRepository } from './medication-catalog.repository.js';
 import type {
   CreateMedicationCatalogBody,
+  MedicationCatalogGetListInput,
+  MedicationCatalogSearchInput,
   UpdateMedicationCatalogBody,
 } from './medication-catalog.schema.js';
 import type { MedicationCatalogDto } from './medication-catalog.types.js';
@@ -13,14 +15,17 @@ import type { MedicationCatalogDto } from './medication-catalog.types.js';
 export class MedicationCatalogService {
   constructor(private readonly repository: MedicationCatalogRepository) {}
 
-  async list(): Promise<MedicationCatalogDto[]> {
-    const rows = await this.repository.list();
+  async list(
+    input: MedicationCatalogGetListInput,
+  ): Promise<MedicationCatalogDto[]> {
+    const rows = await this.repository.list(input);
     return rows.map(mapMedicationCatalogRowToDto);
   }
 
-  async search(queryText: string): Promise<MedicationCatalogDto[]> {
-    const trimmed = queryText.trim();
-    if (trimmed.length === 0) {
+  async search(
+    input: MedicationCatalogSearchInput,
+  ): Promise<MedicationCatalogDto[]> {
+    if (input.name.length === 0) {
       throw new HttpError(
         HTTP_STATUS.BAD_REQUEST,
         ERROR_CODE.VALIDATION_ERROR,
@@ -28,7 +33,7 @@ export class MedicationCatalogService {
       );
     }
 
-    const rows = await this.repository.search(trimmed);
+    const rows = await this.repository.list(input);
     return rows.map(mapMedicationCatalogRowToDto);
   }
 

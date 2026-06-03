@@ -1,6 +1,24 @@
 import { z } from 'zod';
 
+import { paginationInputSchema } from '../../shared/types/pagination.js';
+
 const jsonArraySchema = z.array(z.unknown());
+
+export const medicationCatalogListFilterSchema = z.object({
+  name: z.string().trim().min(1).max(255).optional(),
+  activeIngredient: z.string().trim().min(1).max(255).optional(),
+  dosageForm: z.string().trim().min(1).max(100).optional(),
+  manufacturer: z.string().trim().min(1).max(255).optional(),
+});
+
+export const medicationCatalogGetListInputSchema = paginationInputSchema.merge(
+  medicationCatalogListFilterSchema,
+).strict();
+
+export const medicationCatalogSearchInputSchema =
+  medicationCatalogGetListInputSchema.extend({
+    name: z.string().trim().min(1).max(255),
+  });
 
 export const createMedicationCatalogBodySchema = z.object({
   name: z.string().min(1).max(255),
@@ -25,4 +43,10 @@ export type CreateMedicationCatalogBody = z.infer<
 >;
 export type UpdateMedicationCatalogBody = z.infer<
   typeof updateMedicationCatalogBodySchema
+>;
+export type MedicationCatalogGetListInput = z.infer<
+  typeof medicationCatalogGetListInputSchema
+>;
+export type MedicationCatalogSearchInput = z.infer<
+  typeof medicationCatalogSearchInputSchema
 >;

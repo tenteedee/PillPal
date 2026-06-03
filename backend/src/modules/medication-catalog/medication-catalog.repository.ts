@@ -2,49 +2,50 @@ import { getSupabaseClient } from '../../config/supabase.js';
 import { ERROR_CODE } from '../../shared/constants/error/error-codes.js';
 import { HTTP_STATUS } from '../../shared/constants/http/http-status.js';
 import { HttpError } from '../../shared/errors/http-error.js';
+import { getPaginationRange } from '../../shared/utils/pagination.js';
 
 import type {
   CreateMedicationCatalogBody,
+  MedicationCatalogGetListInput,
   UpdateMedicationCatalogBody,
 } from './medication-catalog.schema.js';
 import type { MedicationCatalogRow } from './medication-catalog.types.js';
 
 export class MedicationCatalogRepository {
-  async list(): Promise<MedicationCatalogRow[]> {
+  async list(
+    input: MedicationCatalogGetListInput,
+  ): Promise<MedicationCatalogRow[]> {
     const supabase = getSupabaseClient();
-    const { data, error } = await supabase
+    const { from, to } = getPaginationRange(input);
+
+    let query = supabase
       .from('medication_catalogs')
       .select('*')
       .order('name', { ascending: true });
+
+    if (input.name !== undefined) {
+      query = query.ilike('name', `%${input.name}%`);
+    }
+
+    if (input.activeIngredient !== undefined) {
+      query = query.ilike('active_ingredient', `%${input.activeIngredient}%`);
+    }
+
+    if (input.dosageForm !== undefined) {
+      query = query.ilike('dosage_form', `%${input.dosageForm}%`);
+    }
+
+    if (input.manufacturer !== undefined) {
+      query = query.ilike('manufacturer', `%${input.manufacturer}%`);
+    }
+
+    const { data, error } = await query.range(from, to);
 
     if (error) {
       throw new HttpError(
         HTTP_STATUS.INTERNAL_SERVER_ERROR,
         ERROR_CODE.MEDICATION_CATALOG_READ_FAILED,
         'Failed to list medication catalogs',
-        error,
-      );
-    }
-
-    return (data as MedicationCatalogRow[]) ?? [];
-  }
-
-  async search(queryText: string): Promise<MedicationCatalogRow[]> {
-    const supabase = getSupabaseClient();
-    const q = `%${queryText}%`;
-
-    const { data, error } = await supabase
-      .from('medication_catalogs')
-      .select('*')
-      .or(`name.ilike.${q},active_ingredient.ilike.${q}`)
-      .order('name', { ascending: true })
-      .limit(30);
-
-    if (error) {
-      throw new HttpError(
-        HTTP_STATUS.INTERNAL_SERVER_ERROR,
-        ERROR_CODE.MEDICATION_CATALOG_READ_FAILED,
-        `Failed to search medication catalog for query: ${queryText}`,
         error,
       );
     }

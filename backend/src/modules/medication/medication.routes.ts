@@ -22,10 +22,45 @@ medicationRouter.use(requireAuth);
  *       - bearerAuth: []
  *     parameters:
  *       - in: query
+ *         name: name
+ *         schema:
+ *           type: string
+ *         description: Optional medication name filter
+ *       - in: query
+ *         name: activeIngredient
+ *         schema:
+ *           type: string
+ *         description: Optional active ingredient filter
+ *       - in: query
+ *         name: strength
+ *         schema:
+ *           type: string
+ *         description: Optional strength filter
+ *       - in: query
+ *         name: dosageForm
+ *         schema:
+ *           type: string
+ *         description: Optional dosage form filter
+ *       - in: query
  *         name: active
  *         schema:
  *           type: boolean
  *         description: Optional active filter
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Page number
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Items per page
  *     responses:
  *       200:
  *         description: OK

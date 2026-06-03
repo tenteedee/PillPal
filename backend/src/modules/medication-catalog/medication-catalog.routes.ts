@@ -20,6 +20,42 @@ medicationCatalogRouter.use(requireAuth);
  *     summary: List medication catalogs
  *     security:
  *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: name
+ *         schema:
+ *           type: string
+ *         description: Optional medication name filter
+ *       - in: query
+ *         name: activeIngredient
+ *         schema:
+ *           type: string
+ *         description: Optional active ingredient filter
+ *       - in: query
+ *         name: dosageForm
+ *         schema:
+ *           type: string
+ *         description: Optional dosage form filter
+ *       - in: query
+ *         name: manufacturer
+ *         schema:
+ *           type: string
+ *         description: Optional manufacturer filter
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Page number
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Items per page
  *     responses:
  *       200:
  *         description: OK
@@ -32,15 +68,30 @@ medicationCatalogRouter.get('/', medicationCatalogController.list);
  *   get:
  *     tags:
  *       - Medication Catalog
- *     summary: Search medication catalog by name or active ingredient
+ *     summary: Search medication catalog by name
  *     security:
  *       - bearerAuth: []
  *     parameters:
  *       - in: query
- *         name: q
+ *         name: name
  *         required: true
  *         schema:
  *           type: string
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Page number
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 20
+ *         description: Items per page
  *     responses:
  *       200:
  *         description: OK

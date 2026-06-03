@@ -2,9 +2,11 @@ import { getSupabaseClient } from "../../config/supabase.js";
 import { ERROR_CODE } from "../../shared/constants/error/error-codes.js";
 import { HTTP_STATUS } from "../../shared/constants/http/http-status.js";
 import { HttpError } from "../../shared/errors/http-error.js";
+import { getPaginationRange } from "../../shared/utils/pagination.js";
 
 import type {
   CreateMedicationBody,
+  MedicationGetListInput,
   UpdateMedicationBody,
 } from "./medication.schema.js";
 import type { UserMedicationRow } from "./medication.types.js";
@@ -12,18 +14,36 @@ import type { UserMedicationRow } from "./medication.types.js";
 export class MedicationRepository {
   async listByProfileId(
     profileId: string,
-    active?: boolean,
+    input: MedicationGetListInput,
   ): Promise<UserMedicationRow[]> {
     const supabase = getSupabaseClient();
+    const { from, to } = getPaginationRange(input);
 
     let query = supabase
       .from("user_medications")
       .select("*")
       .eq("profile_id", profileId)
-      .order("created_at", { ascending: false });
+      .order("created_at", { ascending: false })
+      .range(from, to);
 
-    if (active !== undefined) {
-      query = query.eq("is_active", active);
+    if (input.name !== undefined) {
+      query = query.ilike("name", `%${input.name}%`);
+    }
+
+    if (input.activeIngredient !== undefined) {
+      query = query.ilike("active_ingredient", `%${input.activeIngredient}%`);
+    }
+
+    if (input.strength !== undefined) {
+      query = query.ilike("strength", `%${input.strength}%`);
+    }
+
+    if (input.dosageForm !== undefined) {
+      query = query.ilike("dosage_form", `%${input.dosageForm}%`);
+    }
+
+    if (input.active !== undefined) {
+      query = query.eq("is_active", input.active);
     }
 
     const { data, error } = await query;

@@ -6,6 +6,7 @@ import { mapUserMedicationRowToDto } from "./medication.mapper.js";
 import { MedicationRepository } from "./medication.repository.js";
 import type {
   CreateMedicationBody,
+  MedicationGetListInput,
   UpdateMedicationBody,
 } from "./medication.schema.js";
 import type { UserMedicationDto } from "./medication.types.js";
@@ -30,11 +31,14 @@ export class MedicationService {
     return profile.id;
   }
 
-  async list(userId: string, active?: boolean): Promise<UserMedicationDto[]> {
+  async list(
+    userId: string,
+    input: MedicationGetListInput,
+  ): Promise<UserMedicationDto[]> {
     const profileId = await this.getProfileIdByUserId(userId);
     const rows = await this.medicationRepository.listByProfileId(
       profileId,
-      active,
+      input,
     );
     return rows.map(mapUserMedicationRowToDto);
   }

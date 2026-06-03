@@ -5,7 +5,12 @@ import { ERROR_MESSAGE } from '../../shared/constants/error/error-messages.js';
 import { RESPONSE_MESSAGE } from '../../shared/constants/http/response-messages.js';
 import { HTTP_STATUS } from '../../shared/constants/http/http-status.js';
 import { HttpError } from '../../shared/errors/http-error.js';
+import { parseGetListInput } from '../../shared/utils/list.js';
 import { sendSuccess } from '../../shared/utils/response.js';
+import {
+  medicationCatalogGetListInputSchema,
+  medicationCatalogSearchInputSchema,
+} from './medication-catalog.schema.js';
 import { MedicationCatalogRepository } from './medication-catalog.repository.js';
 import { MedicationCatalogService } from './medication-catalog.service.js';
 
@@ -25,22 +30,12 @@ function requireCatalogId(value: unknown): string {
   return value;
 }
 
-function requireSearchQuery(value: unknown): string {
-  if (typeof value !== 'string') {
-    throw new HttpError(
-      HTTP_STATUS.BAD_REQUEST,
-      ERROR_CODE.VALIDATION_ERROR,
-      ERROR_MESSAGE.INVALID_REQUEST_BODY,
-    );
-  }
-
-  return value;
-}
-
 class MedicationCatalogController {
-  list = async (_req: Request, res: Response, next: NextFunction): Promise<void> => {
+  list = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const catalogs = await medicationCatalogService.list();
+      const catalogs = await medicationCatalogService.list(
+        parseGetListInput(req.query, medicationCatalogGetListInputSchema),
+      );
       sendSuccess(res, catalogs);
     } catch (error) {
       next(error);
@@ -49,8 +44,9 @@ class MedicationCatalogController {
 
   search = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const q = requireSearchQuery(req.query.q);
-      const catalogs = await medicationCatalogService.search(q);
+      const catalogs = await medicationCatalogService.search(
+        parseGetListInput(req.query, medicationCatalogSearchInputSchema),
+      );
       sendSuccess(res, catalogs);
     } catch (error) {
       next(error);
