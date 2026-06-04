@@ -8,6 +8,7 @@ export const ERROR_MESSAGE = {
   PROFILE_ALREADY_EXISTS: "Profile already exists",
   MEDICATION_NOT_FOUND: "Medication not found",
   MEDICATION_CATALOG_NOT_FOUND: "Medication catalog not found",
+  MEDICINE_LOOKUP_NOT_FOUND: "Medicine lookup not found",
   SCHEDULE_NOT_FOUND: "Schedule not found",
   INVALID_UPLOAD_FILE: "Invalid upload file",
   STATIC_FILE_NOT_FOUND: "Static file not found",

@@ -678,6 +678,142 @@ Missed/skipped dose APIs are not implemented in this stage. For the MVP, missed 
 
 ---
 
+# Medicine lookups
+
+These records prepare the unknown-medicine agentic workflow. They do not perform crawling yet.
+
+When `/ai/scan-medication` finds no catalog candidates, backend creates a `medicine_lookup_attempt` with `status = pending`.
+
+When the user confirms a scan as `manual_unverified`, backend links the saved `user_medications` row to that lookup and moves it to `status = needs_admin_review`.
+
+## GET `/medicine-lookups/sources`
+
+List configured lookup sources.
+
+Query:
+
+```txt
+?sourceType=distributor&active=true&page=1&limit=20
+```
+
+`sourceType` values:
+
+```txt
+distributor
+administration
+general_web
+```
+
+Initial seeded sources:
+
+```txt
+Nhà thuốc Long Châu -> distributor, requiredWorkerCount 3
+Pharmacity -> distributor, requiredWorkerCount 3
+Nhà thuốc An Khang -> distributor, requiredWorkerCount 3
+Cục Quản lý Dược Việt Nam -> administration, requiredWorkerCount 1
+Reputable web search -> general_web, requiredWorkerCount 3
+```
+
+Source responsibility:
+
+- `distributor`: trusted pharmacy/distributor evidence. If found here, Stage 5 can move directly to candidate confirmation because Vietnamese distributors are expected to sell administration-authorized medicines.
+- `general_web`: fallback evidence when distributor workers cannot find the pill. Must use at least 3 web workers and only reputable sites.
+- `administration`: Vietnam region authorization check. Used after general-web discovery, handled by 1 administration comparison worker.
+
+Response:
+
+```json
+{
+  "data": [
+    {
+      "id": "uuid",
+      "name": "Nhà thuốc Long Châu",
+      "baseUrl": "https://nhathuoclongchau.com.vn/",
+      "sourceType": "distributor",
+      "requiredWorkerCount": 3,
+      "isActive": true,
+      "createdAt": "2026-06-05T00:00:00.000Z",
+      "updatedAt": "2026-06-05T00:00:00.000Z"
+    }
+  ]
+}
+```
+
+## GET `/medicine-lookups`
+
+List current user's unknown medicine lookup attempts.
+
+Query:
+
+```txt
+?status=pending&queryName=Tiffy&page=1&limit=20
+```
+
+`status` values:
+
+```txt
+pending
+in_progress
+needs_admin_review
+verified
+rejected
+failed
+```
+
+Response:
+
+```json
+{
+  "data": [
+    {
+      "id": "uuid",
+      "profileId": "uuid",
+      "scanAttemptId": "uuid",
+      "staticId": "uuid",
+      "userMedicationId": "uuid-or-null",
+      "status": "needs_admin_review",
+      "queryName": "Tiffy",
+      "queryActiveIngredient": "Paracetamol",
+      "queryManufacturer": null,
+      "extractedData": {},
+      "createdAt": "2026-06-05T00:00:00.000Z",
+      "updatedAt": "2026-06-05T00:00:00.000Z"
+    }
+  ]
+}
+```
+
+## GET `/medicine-lookups/:id`
+
+Get lookup detail, including future worker evidence and external medication candidates.
+
+Response:
+
+```json
+{
+  "data": {
+    "id": "uuid",
+    "profileId": "uuid",
+    "scanAttemptId": "uuid",
+    "staticId": "uuid",
+    "userMedicationId": "uuid-or-null",
+    "status": "needs_admin_review",
+    "queryName": "Tiffy",
+    "queryActiveIngredient": "Paracetamol",
+    "queryManufacturer": null,
+    "extractedData": {},
+    "createdAt": "2026-06-05T00:00:00.000Z",
+    "updatedAt": "2026-06-05T00:00:00.000Z",
+    "evidence": [],
+    "externalCandidates": []
+  }
+}
+```
+
+Stage 5 agents will populate `evidence` and `externalCandidates`.
+
+---
+
 # Upload
 
 ## POST `/uploads`
@@ -724,6 +860,8 @@ Return uploaded static file metadata for the current user.
 
 Pass uploaded static file id. Returns candidates only.
 
+If no catalog/user-medication candidates are found, backend creates a medicine lookup attempt and returns it as `medicineLookup`.
+
 Request:
 
 ```json
@@ -763,6 +901,38 @@ Response:
         "reason": "Matched an active user medication by name, active ingredient, strength."
       }
     ],
+    "medicineLookup": null,
+    "needsUserConfirmation": true,
+    "source": "openai"
+  }
+}
+```
+
+When no candidate is found:
+
+```json
+{
+  "data": {
+    "scanAttemptId": "uuid",
+    "staticId": "uuid",
+    "imageUrl": "https://...",
+    "extractedData": {
+      "name": "Tiffy",
+      "activeIngredient": "Paracetamol",
+      "strength": "500mg",
+      "dosageForm": "Tablet",
+      "manufacturer": null,
+      "visibleText": ["Tiffy", "500mg"],
+      "confidence": 0.82
+    },
+    "candidates": [],
+    "medicineLookup": {
+      "id": "uuid",
+      "status": "pending",
+      "queryName": "Tiffy",
+      "queryActiveIngredient": "Paracetamol",
+      "queryManufacturer": null
+    },
     "needsUserConfirmation": true,
     "source": "openai"
   }
@@ -830,6 +1000,13 @@ Response:
     "scanAttemptId": "uuid",
     "confirmationType": "manual_unverified",
     "verificationStatus": "manual_unverified",
+    "medicineLookup": {
+      "id": "uuid",
+      "status": "needs_admin_review",
+      "queryName": "Tiffy",
+      "queryActiveIngredient": "Paracetamol",
+      "queryManufacturer": null
+    },
     "userMedication": {
       "id": "uuid",
       "profileId": "uuid",

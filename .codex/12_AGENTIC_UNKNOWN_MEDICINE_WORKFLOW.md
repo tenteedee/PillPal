@@ -74,17 +74,19 @@ Structured output should include:
 
 The scan agent only extracts candidates. It does not approve intake.
 
-## Step 2 — Vietnam Pharmacy Workers
+## Step 2 — Distributor Workers
 
-Use trusted Vietnam pharmacy sources as supporting evidence.
+Use trusted Vietnam distributor/pharmacy sources as supporting evidence.
 
-Initial allowed pharmacy sources:
+Initial allowed distributor sources:
 
 ```txt
 https://nhathuoclongchau.com.vn/
 https://www.pharmacity.vn/
 https://www.nhathuocankhang.com/
 ```
+
+The orchestrator must dispatch at least 1 distributor workers for each distributor site. Each worker should operate independently and return structured evidence.
 
 These workers search by:
 
@@ -95,11 +97,15 @@ These workers search by:
 - distributor/importer
 - registration number if available
 
-Pharmacy sites are useful for product matching and retail evidence, but they are not the final authority for Vietnam authorization.
+Distributor sites are useful for product matching and retail evidence. For the MVP workflow, if a medicine is clearly found on trusted Vietnam distributor sources, the orchestrator may return the structured candidate to the next function without separately running the administration comparison, because these distributors are expected to carry administration-authorized products.
+
+The worker still must store source metadata, matched fields, timestamp, and confidence. It must not decide whether the user can safely take the medicine.
 
 ## Step 3 — General Web Evidence Workers
 
-Use broader web search when pharmacy workers cannot find enough evidence, especially for foreign medicines.
+Use broader web search only when distributor workers cannot find enough evidence, especially for foreign medicines.
+
+The orchestrator must dispatch at least 3 general web workers. Each worker should search independently and only return evidence from reputable sources.
 
 Search inputs may include:
 
@@ -123,7 +129,7 @@ Only reputable sources should be trusted for evidence:
 
 Do not use random blogs, forums, or social posts as decisive evidence.
 
-## Step 4 — Vietnam Drug Administration Worker
+## Step 4 — Vietnam Administration Comparison Worker
 
 Check Vietnam Drug Administration registration data:
 
@@ -131,7 +137,11 @@ Check Vietnam Drug Administration registration data:
 https://dichvucong.dav.gov.vn/congbothuoc
 ```
 
-This worker searches by:
+This worker is required when the pill is found through general web evidence instead of trusted distributor evidence.
+
+This can be handled by 1 administration comparison worker.
+
+The worker searches by:
 
 - medicine name
 - active ingredient
@@ -140,7 +150,7 @@ This worker searches by:
 - manufacturer
 - registration/license number
 
-DAV evidence is important for Vietnam authorization, but still store source metadata and timestamp because registry data may change.
+Administration evidence is the regional authorization check for Vietnam. Store source metadata and timestamp because registry data may change.
 
 ## Step 5 — Orchestrator Evidence Merge
 
@@ -165,7 +175,7 @@ Suggested output:
     {
       "sourceName": "string",
       "sourceUrl": "string",
-      "sourceType": "pharmacy | regulator | manufacturer | medical_reference | general_web",
+      "sourceType": "distributor | administration | manufacturer | medical_reference | general_web",
       "trustLevel": "high | medium | low",
       "matchedFields": ["string"],
       "extractedData": {},
@@ -241,9 +251,9 @@ DAILY_DOSE_LIMIT_REACHED -> blocked
 
 ## Suggested Future Tables
 
-### `pharmacy_sources`
+### `medicine_data_sources`
 
-Admin-managed allowed source list.
+Admin-managed allowed source list, split by responsibility.
 
 Suggested fields:
 
@@ -252,10 +262,27 @@ id
 name
 base_url
 source_type
+required_worker_count
 trust_level
 is_active
 created_at
 updated_at
+```
+
+`source_type` values:
+
+```txt
+distributor
+administration
+general_web
+```
+
+Worker-count rules:
+
+```txt
+distributor: at least 3 workers
+general_web: at least 3 workers
+administration: 1 comparison worker
 ```
 
 ### `medicine_lookup_attempts`

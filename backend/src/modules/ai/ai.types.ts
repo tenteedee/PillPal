@@ -34,6 +34,7 @@ export type MedicationScanResultDto = {
   imageUrl: string;
   extractedData: MedicationScanExtraction;
   candidates: MedicationScanCandidateDto[];
+  medicineLookup: MedicationScanLookupDto | null;
   needsUserConfirmation: true;
   source: AiScanSource;
 };
@@ -53,6 +54,7 @@ export type ConfirmMedicationScanResultDto = {
   scanAttemptId: string;
   confirmationType: MedicationScanConfirmationType;
   verificationStatus: MedicationScanVerificationStatus;
+  medicineLookup: MedicationScanLookupDto | null;
   userMedication: {
     id: string;
     profileId: string;
@@ -74,6 +76,14 @@ export type ConfirmMedicationScanResultDto = {
     scheduledTime: null;
     source: "scan";
   };
+};
+
+export type MedicationScanLookupDto = {
+  id: string;
+  status: string;
+  queryName: string | null;
+  queryActiveIngredient: string | null;
+  queryManufacturer: string | null;
 };
 
 export type ScanAttemptRow = {
