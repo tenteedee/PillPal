@@ -102,6 +102,26 @@ export class NotificationRepository {
     return data;
   }
 
+  async findById(id: string): Promise<NotificationEventRow | null> {
+    const supabase = getSupabaseClient();
+    const { data, error } = await supabase
+      .from("notification_events")
+      .select("*")
+      .eq("id", id)
+      .maybeSingle<NotificationEventRow>();
+
+    if (error) {
+      throw new HttpError(
+        HTTP_STATUS.INTERNAL_SERVER_ERROR,
+        ERROR_CODE.NOTIFICATION_EVENT_READ_FAILED,
+        `Failed to read notification event ${id}`,
+        error,
+      );
+    }
+
+    return data;
+  }
+
   async updateStatusById(
     id: string,
     status: NotificationEventStatus,

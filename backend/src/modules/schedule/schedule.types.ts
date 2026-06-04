@@ -25,3 +25,7 @@ export type MedicationScheduleDto = {
   createdAt: string;
   updatedAt: string;
 };
+
+export type MedicationScheduleWithMedicationRow = MedicationScheduleRow & {
+  medication_name: string;
+};

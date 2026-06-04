@@ -6,6 +6,7 @@ export type CaregiverLinkPermissions = {
   notifySafetyWarnings: boolean;
   notifyBlockedAttempts: boolean;
   notifyMissedDose: boolean;
+  notifyMedicationReminders: boolean;
   viewMedicationList: boolean;
   viewIntakeHistory: boolean;
 };

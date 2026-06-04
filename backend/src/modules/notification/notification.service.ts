@@ -15,6 +15,7 @@ import type {
   NotificationEventDto,
   ExpoPushSendResultDto,
   NotificationEventStatus,
+  NotificationEventRow,
 } from "./notification.types.js";
 
 export class NotificationService {
@@ -96,6 +97,28 @@ export class NotificationService {
       );
     }
 
+    return this.sendNotificationEventRow(row);
+  }
+
+  async sendNotificationEventById(
+    notificationId: string,
+  ): Promise<ExpoPushSendResultDto> {
+    const row = await this.notificationRepository.findById(notificationId);
+
+    if (!row) {
+      throw new HttpError(
+        HTTP_STATUS.NOT_FOUND,
+        ERROR_CODE.NOTIFICATION_EVENT_NOT_FOUND,
+        ERROR_MESSAGE.NOTIFICATION_EVENT_NOT_FOUND,
+      );
+    }
+
+    return this.sendNotificationEventRow(row);
+  }
+
+  private async sendNotificationEventRow(
+    row: NotificationEventRow,
+  ): Promise<ExpoPushSendResultDto> {
     if (row.status === "sent") {
       return {
         notification: mapNotificationEventRowToDto(row),
