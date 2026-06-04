@@ -38,6 +38,44 @@ export type MedicationScanResultDto = {
   source: AiScanSource;
 };
 
+export type MedicationScanConfirmationType =
+  | "existing_user_medication"
+  | "catalog_medication"
+  | "manual_unverified";
+
+export type MedicationScanVerificationStatus =
+  | "existing_user_medication"
+  | "catalog_verified"
+  | "manual_unverified"
+  | "already_confirmed";
+
+export type ConfirmMedicationScanResultDto = {
+  scanAttemptId: string;
+  confirmationType: MedicationScanConfirmationType;
+  verificationStatus: MedicationScanVerificationStatus;
+  userMedication: {
+    id: string;
+    profileId: string;
+    catalogId: string | null;
+    name: string;
+    activeIngredient: string | null;
+    strength: string | null;
+    dosageForm: string | null;
+    note: string | null;
+    imageUrl: string | null;
+    isActive: boolean;
+    createdAt: string;
+    updatedAt: string;
+  };
+  nextAction: "run_safety_check";
+  safetyCheckPayload: {
+    userMedicationId: string;
+    scheduleId: null;
+    scheduledTime: null;
+    source: "scan";
+  };
+};
+
 export type ScanAttemptRow = {
   id: string;
   profile_id: string;
