@@ -500,11 +500,15 @@ Request:
 ```json
 {
   "userMedicationId": "uuid",
-  "scheduleId": "uuid-or-null",
-  "scheduledTime": "08:00",
-  "source": "manual"
+  "scheduleId": null,
+  "scheduledTime": null,
+  "source": "scan"
 }
 ```
+
+`scheduleId` and `scheduledTime` are optional. When `scheduleId` is omitted or `null`, backend automatically loads active schedules for `userMedicationId` and treats those schedules as the expected medication plan.
+
+The `times` in medication schedules are reminder/UI references only. Safety timing is based on `minIntervalHours`, the last intake record, and today's intake count.
 
 `source` values:
 
@@ -534,7 +538,8 @@ Response:
         "metadata": {
           "minIntervalHours": 6,
           "hoursSinceLastTaken": 2.5,
-          "lastTakenAt": "2026-06-04T01:30:00.000Z"
+          "lastTakenAt": "2026-06-04T01:30:00.000Z",
+          "scheduleIds": ["uuid"]
         }
       }
     ],
@@ -544,6 +549,14 @@ Response:
   }
 }
 ```
+
+Important safety behavior:
+
+- If the medication has no active schedule, backend returns a warning with `SCHEDULE_NOT_FOUND` because the medicine is not part of the user's expected active plan.
+- If a provided `scheduleId` belongs to another medication, backend returns `SCHEDULE_MEDICATION_MISMATCH` as blocked.
+- If the medication was taken before the active plan's `minIntervalHours`, backend returns `MIN_INTERVAL_VIOLATION` as warning.
+- If today's taken count reaches the active plan's total daily dose limit, backend returns `DAILY_DOSE_LIMIT_REACHED` as blocked.
+- If `catalogId` is `null`, backend returns `MEDICATION_NOT_VERIFIED_IN_CATALOG` as warning.
 
 ---
 

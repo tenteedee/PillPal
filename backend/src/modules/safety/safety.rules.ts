@@ -34,11 +34,8 @@ export function evaluateSafetyRules(input: SafetyRuleInput): SafetyRuleOutput {
     );
   }
 
-  if (!input.schedule) {
-    reasons.push(reason("SCHEDULE_NOT_FOUND", "warning"));
-  } else {
-    evaluateScheduleRules(input, reasons);
-  }
+  evaluateSelectedScheduleRules(input, reasons);
+  evaluateActivePlanRules(input, reasons);
 
   const result = reasons.some((item) => item.severity === "blocked")
     ? "blocked"
@@ -54,11 +51,11 @@ export function evaluateSafetyRules(input: SafetyRuleInput): SafetyRuleOutput {
   };
 }
 
-function evaluateScheduleRules(
+function evaluateSelectedScheduleRules(
   input: SafetyRuleInput,
   reasons: SafetyReason[],
 ): void {
-  const schedule = input.schedule;
+  const schedule = input.selectedSchedule;
   if (!schedule) {
     return;
   }
@@ -70,31 +67,63 @@ function evaluateScheduleRules(
   if (schedule.user_medication_id !== input.medication.id) {
     reasons.push(reason("SCHEDULE_MEDICATION_MISMATCH", "blocked"));
   }
+}
 
-  if (schedule.min_interval_hours && input.lastTakenAt) {
+function evaluateActivePlanRules(
+  input: SafetyRuleInput,
+  reasons: SafetyReason[],
+): void {
+  const activeSchedules = input.activeMedicationSchedules.filter(
+    (schedule) => schedule.user_medication_id === input.medication.id,
+  );
+
+  if (activeSchedules.length === 0) {
+    reasons.push(reason("SCHEDULE_NOT_FOUND", "warning"));
+    return;
+  }
+
+  const minIntervalHours = getMostConservativeMinIntervalHours(activeSchedules);
+  if (minIntervalHours && input.lastTakenAt) {
     const lastTakenAt = new Date(input.lastTakenAt);
     const hoursSinceLastTaken =
       (input.now.getTime() - lastTakenAt.getTime()) / (60 * 60 * 1000);
 
-    if (hoursSinceLastTaken < schedule.min_interval_hours) {
+    if (hoursSinceLastTaken < minIntervalHours) {
       reasons.push(
         reason("MIN_INTERVAL_VIOLATION", "warning", {
-          minIntervalHours: schedule.min_interval_hours,
+          minIntervalHours,
           hoursSinceLastTaken: Number(hoursSinceLastTaken.toFixed(2)),
           lastTakenAt: input.lastTakenAt,
+          scheduleIds: activeSchedules.map((schedule) => schedule.id),
         }),
       );
     }
   }
 
-  if (input.todayTakenCount >= schedule.times_per_day) {
+  const dailyDoseLimit = activeSchedules.reduce(
+    (total, schedule) => total + schedule.times_per_day,
+    0,
+  );
+
+  if (input.todayTakenCount >= dailyDoseLimit) {
     reasons.push(
       reason("DAILY_DOSE_LIMIT_REACHED", "blocked", {
         todayTakenCount: input.todayTakenCount,
-        timesPerDay: schedule.times_per_day,
+        dailyDoseLimit,
+        scheduleIds: activeSchedules.map((schedule) => schedule.id),
       }),
     );
   }
+}
+
+function getMostConservativeMinIntervalHours(
+  schedules: SafetyRuleInput["activeMedicationSchedules"],
+): number | null {
+  const intervals = schedules
+    .map((schedule) => schedule.min_interval_hours)
+    .filter((value): value is number => typeof value === "number");
+
+  return intervals.length > 0 ? Math.max(...intervals) : null;
 }
 
 function findAllergyMatch(input: SafetyRuleInput): unknown | null {

@@ -105,6 +105,32 @@ export class ScheduleRepository {
     return data;
   }
 
+  async listActiveByMedicationId(
+    profileId: string,
+    userMedicationId: string,
+  ): Promise<MedicationScheduleRow[]> {
+    const supabase = getSupabaseClient();
+
+    const { data, error } = await supabase
+      .from("medication_schedules")
+      .select("*")
+      .eq("profile_id", profileId)
+      .eq("user_medication_id", userMedicationId)
+      .eq("is_active", true)
+      .order("created_at", { ascending: true });
+
+    if (error) {
+      throw new HttpError(
+        HTTP_STATUS.INTERNAL_SERVER_ERROR,
+        ERROR_CODE.SCHEDULE_READ_FAILED,
+        `Failed to list active schedules for medication ${userMedicationId}`,
+        error,
+      );
+    }
+
+    return (data as MedicationScheduleRow[]) ?? [];
+  }
+
   async updateByIdAndProfileId(
     scheduleId: string,
     profileId: string,
