@@ -95,6 +95,8 @@ Request:
     "notifySafetyWarnings": true,
     "notifyBlockedAttempts": true,
     "notifyMissedDose": true,
+    "notifyMedicationReminders": true,
+    "notifyIntakeConfirmations": true,
     "viewMedicationList": false,
     "viewIntakeHistory": false
   }
@@ -122,6 +124,8 @@ Response items include:
     "notifySafetyWarnings": true,
     "notifyBlockedAttempts": true,
     "notifyMissedDose": true,
+    "notifyMedicationReminders": true,
+    "notifyIntakeConfirmations": true,
     "viewMedicationList": false,
     "viewIntakeHistory": false
   },
@@ -230,6 +234,17 @@ scan_unknown_medicine
 test
 ```
 
+Backend automatically creates notification events and sends Expo push for:
+
+- `medication_reminder`: patient and caregivers with medication reminder permission.
+- `safety_warning`: caregivers with safety warning permission.
+- `safety_blocked`: caregivers with blocked attempt permission.
+- `intake_confirmed`: caregivers with intake confirmation permission.
+- `intake_confirmed_after_warning`: caregivers with intake confirmation permission.
+- `scan_unknown_medicine`: caregivers with safety warning permission.
+
+`dose_missed` is reserved for a future missed-dose job/API and is not automatically emitted in this stage.
+
 Response:
 
 ```json
@@ -255,7 +270,7 @@ Response:
 }
 ```
 
-This stage stores notification intent/history only. Expo sending is added in a later stage.
+Notification rows store delivery history. Backend attempts Expo push delivery when the event is created by core workflows, or when `POST /notifications/:id/send` is called for a pending/failed notification.
 
 ## GET `/notifications/:id`
 

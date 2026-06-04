@@ -4,7 +4,12 @@ import { ERROR_MESSAGE } from "../../shared/constants/error/error-messages.js";
 import { HTTP_STATUS } from "../../shared/constants/http/http-status.js";
 import { HttpError } from "../../shared/errors/http-error.js";
 import { getTodayDateString } from "../../shared/utils/date-time.js";
+import { CaregiverRepository } from "../caregiver/caregiver.repository.js";
+import { DeviceRepository } from "../device/device.repository.js";
 import { MedicationRepository } from "../medication/medication.repository.js";
+import { ExpoPushService } from "../notification/expo-push.service.js";
+import { NotificationRepository } from "../notification/notification.repository.js";
+import { NotificationService } from "../notification/notification.service.js";
 import { ProfileRepository } from "../profile/profile.repository.js";
 import { SafetyRepository } from "../safety/safety.repository.js";
 import { ScheduleRepository } from "../schedule/schedule.repository.js";
@@ -14,12 +19,20 @@ import type { CreateIntakeBody, IntakeListInput } from "./intake.schema.js";
 import type { IntakeEventDto } from "./intake.types.js";
 
 export class IntakeService {
+  private readonly notificationService = new NotificationService(
+    new NotificationRepository(),
+    new ProfileRepository(),
+    new DeviceRepository(),
+    new ExpoPushService(),
+  );
+
   constructor(
     private readonly intakeRepository: IntakeRepository,
     private readonly profileRepository: ProfileRepository,
     private readonly medicationRepository: MedicationRepository,
     private readonly scheduleRepository: ScheduleRepository,
     private readonly safetyRepository: SafetyRepository,
+    private readonly caregiverRepository: CaregiverRepository,
   ) {}
 
   async list(userId: string, input: IntakeListInput): Promise<IntakeEventDto[]> {
@@ -172,6 +185,17 @@ export class IntakeService {
       warningSnapshot,
     });
 
+    await this.notifyCaregiversOfIntake({
+      patientProfileId: profileId,
+      medicationName: medication.name,
+      intakeEventId: row.id,
+      userMedicationId: medication.id,
+      scheduleId: payload.scheduleId ?? null,
+      scheduledTime: payload.scheduledTime ?? null,
+      result: safetyCheck.result,
+      confirmedAfterWarning: safetyCheck.result === "warning",
+    });
+
     return mapIntakeEventRowToDto(row);
   }
 
@@ -186,6 +210,51 @@ export class IntakeService {
     }
 
     return profile.id;
+  }
+
+  private async notifyCaregiversOfIntake(input: {
+    patientProfileId: string;
+    medicationName: string;
+    intakeEventId: string;
+    userMedicationId: string;
+    scheduleId: string | null;
+    scheduledTime: string | null;
+    result: "allowed" | "warning" | "blocked";
+    confirmedAfterWarning: boolean;
+  }): Promise<void> {
+    const caregiverProfileIds =
+      await this.caregiverRepository.listAcceptedNotificationCaregiverProfileIds(
+        input.patientProfileId,
+        "notifyIntakeConfirmations",
+      );
+
+    await Promise.all(
+      caregiverProfileIds.map(async (recipientProfileId) => {
+        const notification =
+          await this.notificationService.createNotificationEvent({
+            patientProfileId: input.patientProfileId,
+            recipientProfileId,
+            eventType: input.confirmedAfterWarning
+              ? "intake_confirmed_after_warning"
+              : "intake_confirmed",
+            title: input.confirmedAfterWarning
+              ? "Medication taken after warning"
+              : "Medication intake confirmed",
+            body: `${input.medicationName} intake was confirmed.`,
+            payload: {
+              intakeEventId: input.intakeEventId,
+              userMedicationId: input.userMedicationId,
+              scheduleId: input.scheduleId,
+              scheduledTime: input.scheduledTime,
+              safetyResult: input.result,
+            },
+          });
+
+        await this.notificationService.sendNotificationEventById(
+          notification.id,
+        );
+      }),
+    );
   }
 }
 

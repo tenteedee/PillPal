@@ -4,11 +4,16 @@ import { ERROR_CODE } from "../../shared/constants/error/error-codes.js";
 import { ERROR_MESSAGE } from "../../shared/constants/error/error-messages.js";
 import { HTTP_STATUS } from "../../shared/constants/http/http-status.js";
 import { HttpError } from "../../shared/errors/http-error.js";
+import { CaregiverRepository } from "../caregiver/caregiver.repository.js";
+import { DeviceRepository } from "../device/device.repository.js";
 import { MedicationRepository } from "../medication/medication.repository.js";
 import type { MedicationCatalogRow } from "../medication-catalog/medication-catalog.types.js";
 import { MedicineLookupService } from "../medicine-lookup/medicine-lookup.service.js";
 import type { MedicineLookupAttemptDto } from "../medicine-lookup/medicine-lookup.types.js";
 import type { UserMedicationRow } from "../medication/medication.types.js";
+import { ExpoPushService } from "../notification/expo-push.service.js";
+import { NotificationRepository } from "../notification/notification.repository.js";
+import { NotificationService } from "../notification/notification.service.js";
 import { ProfileRepository } from "../profile/profile.repository.js";
 import { StaticRepository } from "../static/static.repository.js";
 import { StaticService } from "../static/static.service.js";
@@ -48,12 +53,19 @@ const MOCK_EXTRACTION: MedicationScanExtraction = {
 
 export class AiService {
   private readonly staticService = new StaticService(new StaticRepository());
+  private readonly notificationService = new NotificationService(
+    new NotificationRepository(),
+    new ProfileRepository(),
+    new DeviceRepository(),
+    new ExpoPushService(),
+  );
 
   constructor(
     private readonly aiRepository: AiRepository,
     private readonly profileRepository: ProfileRepository,
     private readonly medicationRepository: MedicationRepository,
     private readonly medicineLookupService: MedicineLookupService,
+    private readonly caregiverRepository: CaregiverRepository,
   ) {}
 
   private async getProfileIdByUserId(userId: string): Promise<string> {
@@ -118,6 +130,16 @@ export class AiService {
             extractedData: extractionResult.extraction,
           })
         : null;
+
+    if (medicineLookup) {
+      await this.notifyCaregiversOfUnknownScan({
+        patientProfileId: profileId,
+        scanAttemptId: scanAttempt.id,
+        staticId: payload.staticId,
+        medicineLookupId: medicineLookup.id,
+        extraction: extractionResult.extraction,
+      });
+    }
 
     return mapMedicationScanResultToDto({
       scanAttemptId: scanAttempt.id,
@@ -284,6 +306,45 @@ export class AiService {
     userMedication: UserMedicationRow;
   }): ConfirmMedicationScanResultDto {
     return mapConfirmMedicationScanResultToDto(input);
+  }
+
+  private async notifyCaregiversOfUnknownScan(input: {
+    patientProfileId: string;
+    scanAttemptId: string;
+    staticId: string;
+    medicineLookupId: string;
+    extraction: MedicationScanExtraction;
+  }): Promise<void> {
+    const caregiverProfileIds =
+      await this.caregiverRepository.listAcceptedNotificationCaregiverProfileIds(
+        input.patientProfileId,
+        "notifySafetyWarnings",
+      );
+
+    await Promise.all(
+      caregiverProfileIds.map(async (recipientProfileId) => {
+        const notification =
+          await this.notificationService.createNotificationEvent({
+            patientProfileId: input.patientProfileId,
+            recipientProfileId,
+            eventType: "scan_unknown_medicine",
+            title: "Unknown medicine scan",
+            body: `${input.extraction.name ?? "Unknown medicine"} needs review.`,
+            payload: {
+              scanAttemptId: input.scanAttemptId,
+              staticId: input.staticId,
+              medicineLookupId: input.medicineLookupId,
+              extractedName: input.extraction.name,
+              activeIngredient: input.extraction.activeIngredient,
+              manufacturer: input.extraction.manufacturer,
+            },
+          });
+
+        await this.notificationService.sendNotificationEventById(
+          notification.id,
+        );
+      }),
+    );
   }
 
   private async extractMedication(imageUrl: string): Promise<{

@@ -1,6 +1,7 @@
 import type { NextFunction, Request, Response } from "express";
 
 import { sendSuccess } from "../../shared/utils/response.js";
+import { CaregiverRepository } from "../caregiver/caregiver.repository.js";
 import { MedicationRepository } from "../medication/medication.repository.js";
 import { MedicineLookupRepository } from "../medicine-lookup/medicine-lookup.repository.js";
 import { MedicineLookupService } from "../medicine-lookup/medicine-lookup.service.js";
@@ -19,6 +20,7 @@ const aiService = new AiService(
     profileRepository,
     new MedicationRepository(),
   ),
+  new CaregiverRepository(),
 );
 
 class AiController {
