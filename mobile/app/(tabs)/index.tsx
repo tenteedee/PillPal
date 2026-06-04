@@ -21,9 +21,17 @@ import {
   scanMedicationByStaticId,
   uploadMedicationImage,
 } from '@/src/api/scan.api';
+import { runSafetyCheck, SafetyCheckResult, SafetyReason } from '@/src/api/safety.api';
+import {
+  getAccessibilitySettings,
+  scaleFont,
+  scaleSpace,
+  useAccessibilityStore,
+} from '@/src/store/accessibility';
 import { palette, radius, shadows, spacing, typography } from '@/src/theme/pillpal';
 
 type ScanStage = 'idle' | 'uploading' | 'analyzing' | 'done' | 'error';
+type SafetyStage = 'idle' | 'checking' | 'done' | 'error';
 
 const blue = {
   bg: palette.canvas,
@@ -49,8 +57,12 @@ export default function ScanScreen() {
   const [cameraReady, setCameraReady] = useState(false);
   const [selectedImage, setSelectedImage] = useState<ScanImageAsset | null>(null);
   const [scanResult, setScanResult] = useState<MedicationScanResult | null>(null);
+  const [safetyResult, setSafetyResult] = useState<SafetyCheckResult | null>(null);
+  const [safetyStage, setSafetyStage] = useState<SafetyStage>('idle');
   const [stage, setStage] = useState<ScanStage>('idle');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [safetyErrorMessage, setSafetyErrorMessage] = useState<string | null>(null);
+  const settings = getAccessibilitySettings(useAccessibilityStore((state) => state.mode));
 
   const isBusy = stage === 'uploading' || stage === 'analyzing';
 
@@ -131,7 +143,10 @@ export default function ScanScreen() {
     try {
       setSelectedImage(asset);
       setScanResult(null);
+      setSafetyResult(null);
+      setSafetyStage('idle');
       setErrorMessage(null);
+      setSafetyErrorMessage(null);
       setStage('uploading');
       const upload = await uploadMedicationImage(asset);
 
@@ -150,25 +165,71 @@ export default function ScanScreen() {
     }
   }
 
+
+  async function runSafetyCheckForCandidate(candidate: MedicationScanCandidate | undefined) {
+    setSafetyErrorMessage(null);
+
+    if (!candidate?.userMedicationId) {
+      setSafetyStage('error');
+      setSafetyErrorMessage('Thuốc này chưa khớp với tủ thuốc cá nhân. Vui lòng chọn thuốc thủ công trước khi kiểm tra an toàn.');
+      return;
+    }
+
+    try {
+      setSafetyStage('checking');
+      const result = await runSafetyCheck({
+        userMedicationId: candidate.userMedicationId,
+        scheduleId: null,
+        scheduledTime: null,
+        source: 'scan',
+      });
+      setSafetyResult(result);
+      setSafetyStage('done');
+    } catch (error) {
+      setSafetyStage('error');
+      setSafetyErrorMessage(
+        error instanceof Error
+          ? error.message
+          : 'Không thể kiểm tra an toàn lúc này. Vui lòng thử lại.',
+      );
+    }
+  }
+
   const scanLineTranslate = scanLine.interpolate({
     inputRange: [0, 1],
     outputRange: [-96, 96],
   });
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={['top']}>
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+    <SafeAreaView
+      style={[styles.safeArea, settings.highContrast && styles.safeAreaContrast]}
+      edges={['top']}>
+      <ScrollView
+        contentContainerStyle={[
+          styles.scrollContent,
+          {
+            paddingHorizontal: settings.screenPadding,
+            paddingTop: scaleSpace(spacing.lg, settings),
+            paddingBottom: settings.tabBarHeight + 42,
+            gap: scaleSpace(spacing.lg, settings),
+          },
+        ]}
+        showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
           <View style={styles.headerIcon}>
             <Ionicons name="scan" size={24} color={blue.primary} />
           </View>
           <View style={styles.headerCopy}>
-            <Text style={styles.title}>Kiểm tra thuốc</Text>
+            <Text style={[styles.title, { fontSize: scaleFont(24, settings) }]}>Kiểm tra thuốc</Text>
           </View>
         </View>
 
-        <View style={styles.cameraCard}>
-          <View style={styles.cameraStage}>
+        <View style={[styles.cameraCard, settings.highContrast && styles.cardContrast]}>
+          <View
+            style={[
+              styles.cameraStage,
+              { height: settings.simplified ? 280 : Math.round(330 * settings.spacingScale) },
+            ]}>
             {cameraOpen ? (
               <CameraView
                 ref={cameraRef}
@@ -185,8 +246,12 @@ export default function ScanScreen() {
                 <View style={styles.placeholderIcon}>
                   <Ionicons name="camera-outline" size={36} color={blue.primary} />
                 </View>
-                <Text style={styles.placeholderTitle}>Đưa thuốc vào khung</Text>
-                <Text style={styles.placeholderText}>Nền sáng, không rung tay, chữ trên thuốc nằm trong vùng quét.</Text>
+                <Text style={[styles.placeholderTitle, { fontSize: scaleFont(typography.lead, settings) }]}>Đưa thuốc vào khung</Text>
+                {settings.showSecondaryText ? (
+                  <Text style={[styles.placeholderText, { fontSize: scaleFont(typography.small, settings) }]}>
+                    Nền sáng, không rung tay, chữ trên thuốc nằm trong vùng quét.
+                  </Text>
+                ) : null}
               </View>
             )}
 
@@ -230,15 +295,28 @@ export default function ScanScreen() {
           )}
         </View>
 
-        <View style={styles.tipsRow}>
-          <Tip icon="sunny" label="Đủ sáng" />
-          <Tip icon="text" label="Thấy rõ chữ" />
-          <Tip icon="hand-left" label="Giữ yên" />
-        </View>
+        {!settings.simplified ? (
+          <View style={styles.tipsRow}>
+            <Tip icon="sunny" label="Đủ sáng" settings={settings} />
+            <Tip icon="text" label="Thấy rõ chữ" settings={settings} />
+            <Tip icon="hand-left" label="Giữ yên" settings={settings} />
+          </View>
+        ) : null}
 
-        {isBusy ? <ProgressCard stage={stage} /> : null}
-        {errorMessage ? <ErrorCard message={errorMessage} /> : null}
-        {scanResult ? <ScanResultCard result={scanResult} /> : <WaitingCard />}
+        {isBusy ? <ProgressCard stage={stage} settings={settings} /> : null}
+        {errorMessage ? <ErrorCard message={errorMessage} settings={settings} /> : null}
+        {scanResult ? (
+          <ScanResultCard
+            result={scanResult}
+            safetyResult={safetyResult}
+            safetyStage={safetyStage}
+            safetyErrorMessage={safetyErrorMessage}
+            onRunSafetyCheck={runSafetyCheckForCandidate}
+            settings={settings}
+          />
+        ) : (
+          <WaitingCard settings={settings} />
+        )}
       </ScrollView>
     </SafeAreaView>
   );
@@ -284,42 +362,62 @@ function ActionButton({
   );
 }
 
-function Tip({ icon, label }: { icon: keyof typeof Ionicons.glyphMap; label: string }) {
+function Tip({
+  icon,
+  label,
+  settings,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  label: string;
+  settings: ReturnType<typeof getAccessibilitySettings>;
+}) {
   return (
     <View style={styles.tipPill}>
       <Ionicons name={icon} size={15} color={blue.primary} />
-      <Text style={styles.tipText}>{label}</Text>
+      <Text style={[styles.tipText, { fontSize: scaleFont(12, settings) }]}>{label}</Text>
     </View>
   );
 }
 
-function ProgressCard({ stage }: { stage: ScanStage }) {
+function ProgressCard({
+  stage,
+  settings,
+}: {
+  stage: ScanStage;
+  settings: ReturnType<typeof getAccessibilitySettings>;
+}) {
   return (
     <View style={styles.infoCard}>
       <ActivityIndicator color={blue.primary} />
       <View style={styles.infoCopy}>
-        <Text style={styles.infoTitle}>{stage === 'uploading' ? 'Đang tải ảnh lên' : 'Đang nhận diện thuốc'}</Text>
-        <Text style={styles.infoText}>Quá trình này thường chỉ mất vài giây. Vui lòng giữ màn hình mở.</Text>
+        <Text style={[styles.infoTitle, { fontSize: scaleFont(typography.lead, settings) }]}>{stage === 'uploading' ? 'Đang tải ảnh lên' : 'Đang nhận diện thuốc'}</Text>
+        <Text style={[styles.infoText, { fontSize: scaleFont(typography.small, settings) }]}>Quá trình này thường chỉ mất vài giây. Vui lòng giữ màn hình mở.</Text>
       </View>
     </View>
   );
 }
 
-function ErrorCard({ message }: { message: string }) {
+function ErrorCard({
+  message,
+  settings,
+}: {
+  message: string;
+  settings: ReturnType<typeof getAccessibilitySettings>;
+}) {
   return (
     <View style={[styles.infoCard, styles.errorCard]}>
       <View style={styles.errorIcon}>
         <Ionicons name="warning" size={20} color={blue.danger} />
       </View>
       <View style={styles.infoCopy}>
-        <Text style={styles.errorTitle}>Chưa quét được ảnh</Text>
-        <Text style={styles.infoText}>{message}</Text>
+        <Text style={[styles.errorTitle, { fontSize: scaleFont(typography.lead, settings) }]}>Chưa quét được ảnh</Text>
+        <Text style={[styles.infoText, { fontSize: scaleFont(typography.small, settings) }]}>{message}</Text>
       </View>
     </View>
   );
 }
 
-function WaitingCard() {
+function WaitingCard({ settings }: { settings: ReturnType<typeof getAccessibilitySettings> }) {
   return (
     <View style={styles.waitingCard}>
       <View style={styles.waitingIcon}>
@@ -327,18 +425,32 @@ function WaitingCard() {
       </View>
       <View style={styles.infoCopy}>
         <Text style={styles.waitingTitle}>Thông tin thuốc sẽ hiện ở đây</Text>
-        <Text style={styles.infoText}>Sau khi quét, PillPal sẽ hiển thị tên thuốc, hoạt chất, hàm lượng và mức độ khớp.</Text>
+        <Text style={[styles.infoText, { fontSize: scaleFont(typography.small, settings) }]}>Sau khi quét, PillPal sẽ hiển thị tên thuốc, hoạt chất, hàm lượng và mức độ khớp.</Text>
       </View>
     </View>
   );
 }
 
-function ScanResultCard({ result }: { result: MedicationScanResult }) {
+function ScanResultCard({
+  result,
+  safetyResult,
+  safetyStage,
+  safetyErrorMessage,
+  onRunSafetyCheck,
+  settings,
+}: {
+  result: MedicationScanResult;
+  safetyResult: SafetyCheckResult | null;
+  safetyStage: SafetyStage;
+  safetyErrorMessage: string | null;
+  onRunSafetyCheck: (candidate: MedicationScanCandidate | undefined) => void;
+  settings: ReturnType<typeof getAccessibilitySettings>;
+}) {
   const bestCandidate = result.candidates[0];
   const displayName = bestCandidate?.name ?? result.extractedData.name ?? 'Chưa đọc được tên thuốc';
 
   return (
-    <View style={styles.resultCard}>
+    <View style={[styles.resultCard, settings.highContrast && styles.cardContrast]}>
       <View style={styles.resultTopRow}>
         <View style={styles.resultBadge}>
           <Ionicons name="shield-checkmark" size={16} color={blue.primary} />
@@ -346,36 +458,163 @@ function ScanResultCard({ result }: { result: MedicationScanResult }) {
         </View>
       </View>
 
-      <Text style={styles.resultTitle}>Dựa trên hình ảnh, thuốc có thể là:</Text>
-      <Text style={styles.resultName}>{displayName}</Text>
-      <Text style={styles.resultHint}>Vui lòng xác nhận trước khi tiếp tục kiểm tra an toàn.</Text>
+      <Text style={[styles.resultTitle, { fontSize: scaleFont(18, settings) }]}>Dựa trên hình ảnh, thuốc có thể là:</Text>
+      <Text style={[styles.resultName, { fontSize: scaleFont(28, settings) }]}>{displayName}</Text>
+      {settings.showSecondaryText ? (
+        <Text style={[styles.resultHint, { fontSize: scaleFont(14, settings) }]}>
+          Vui lòng xác nhận trước khi tiếp tục kiểm tra an toàn.
+        </Text>
+      ) : null}
 
-      {bestCandidate ? <CandidateCard candidate={bestCandidate} /> : <NoCandidate />}
+      {bestCandidate ? <CandidateCard candidate={bestCandidate} settings={settings} /> : <NoCandidate settings={settings} />}
 
       <View style={styles.detailGrid}>
-        <InfoTile label="Hoạt chất" value={result.extractedData.activeIngredient} />
-        <InfoTile label="Hàm lượng" value={result.extractedData.strength} />
-        <InfoTile label="Dạng thuốc" value={result.extractedData.dosageForm} />
-        <InfoTile label="Độ tin cậy" value={`${Math.round((bestCandidate?.confidence ?? result.extractedData.confidence) * 100)}%`} />
+        <InfoTile label="Hoạt chất" value={result.extractedData.activeIngredient} settings={settings} />
+        <InfoTile label="Hàm lượng" value={result.extractedData.strength} settings={settings} />
+        <InfoTile label="Dạng thuốc" value={result.extractedData.dosageForm} settings={settings} />
+        <InfoTile
+          label="Độ tin cậy"
+          value={`${Math.round((bestCandidate?.confidence ?? result.extractedData.confidence) * 100)}%`}
+          settings={settings}
+        />
       </View>
 
+      {safetyStage === 'checking' ? <SafetyProgressCard settings={settings} /> : null}
+      {safetyErrorMessage ? <SafetyErrorCard message={safetyErrorMessage} settings={settings} /> : null}
+      {safetyResult ? <SafetyResultCard result={safetyResult} settings={settings} /> : null}
+
       <View style={styles.resultActions}>
-        <ActionButton label="Đúng, kiểm tra an toàn" icon="checkmark-circle" onPress={() => {}} />
-        <ActionButton label="Chọn thuốc khác" icon="list" variant="light" onPress={() => {}} />
+        <ActionButton
+          label={safetyStage === 'checking' ? 'Đang kiểm tra' : 'Đúng, kiểm tra an toàn'}
+          icon="checkmark-circle"
+          onPress={() => onRunSafetyCheck(bestCandidate)}
+          disabled={safetyStage === 'checking'}
+        />
+        <ActionButton
+          label="Chọn thuốc khác"
+          icon="list"
+          variant="light"
+          onPress={() => onRunSafetyCheck(undefined)}
+          disabled={safetyStage === 'checking'}
+        />
       </View>
     </View>
   );
 }
 
-function CandidateCard({ candidate }: { candidate: MedicationScanCandidate }) {
+function SafetyProgressCard({ settings }: { settings: ReturnType<typeof getAccessibilitySettings> }) {
+  return (
+    <View style={styles.safetyInfoCard}>
+      <ActivityIndicator color={blue.primary} />
+      <View style={styles.infoCopy}>
+        <Text style={[styles.infoTitle, { fontSize: scaleFont(typography.lead, settings) }]}>Đang kiểm tra an toàn</Text>
+        <Text style={[styles.infoText, { fontSize: scaleFont(typography.small, settings) }]}>Backend đang chạy rule engine và sẽ gửi cảnh báo cho caregiver nếu có rủi ro.</Text>
+      </View>
+    </View>
+  );
+}
+
+function SafetyErrorCard({ message, settings }: { message: string; settings: ReturnType<typeof getAccessibilitySettings> }) {
+  return (
+    <View style={[styles.safetyInfoCard, styles.errorCard]}>
+      <View style={styles.errorIcon}>
+        <Ionicons name="warning" size={20} color={blue.danger} />
+      </View>
+      <View style={styles.infoCopy}>
+        <Text style={[styles.errorTitle, { fontSize: scaleFont(typography.lead, settings) }]}>Chưa thể kiểm tra an toàn</Text>
+        <Text style={[styles.infoText, { fontSize: scaleFont(typography.small, settings) }]}>{message}</Text>
+      </View>
+    </View>
+  );
+}
+
+function SafetyResultCard({
+  result,
+  settings,
+}: {
+  result: SafetyCheckResult;
+  settings: ReturnType<typeof getAccessibilitySettings>;
+}) {
+  const tone = getSafetyTone(result.result);
+  const label = getSafetyLabel(result.result);
+
+  return (
+    <View style={[styles.safetyResultCard, safetyResultStyles[tone]]}>
+      <View style={styles.safetyResultHeader}>
+        <View style={[styles.safetyIcon, safetyIconStyles[tone]]}>
+          <Ionicons name={getSafetyIcon(result.result)} size={22} color={safetyTextColors[tone]} />
+        </View>
+        <View style={styles.infoCopy}>
+          <Text style={[styles.safetyTitle, { color: safetyTextColors[tone] }]}>{label}</Text>
+          <Text style={styles.safetyMeta}>
+            {result.result === 'allowed'
+              ? 'Không cần gửi cảnh báo caregiver.'
+              : 'Backend đã tạo notification cho caregiver phù hợp nếu họ có push token.'}
+          </Text>
+        </View>
+      </View>
+
+      {result.reasons.length ? (
+        <View style={styles.reasonList}>
+          {result.reasons.map((reason) => (
+            <SafetyReasonRow key={reason.code + reason.message} reason={reason} />
+          ))}
+        </View>
+      ) : (
+        <Text style={styles.safetyMeta}>Không có cảnh báo bổ sung.</Text>
+      )}
+
+      {result.suggestedAction ? <Text style={styles.suggestedAction}>{result.suggestedAction}</Text> : null}
+    </View>
+  );
+}
+
+function SafetyReasonRow({ reason }: { reason: SafetyReason }) {
+  return (
+    <View style={styles.reasonRow}>
+      <Ionicons
+        name={reason.severity === 'blocked' ? 'stop-circle' : 'alert-circle'}
+        size={18}
+        color={reason.severity === 'blocked' ? blue.danger : palette.amber}
+      />
+      <Text style={styles.reasonText}>{reason.message}</Text>
+    </View>
+  );
+}
+
+function getSafetyTone(status: SafetyCheckResult['result']): 'allowed' | 'warning' | 'blocked' {
+  if (status === 'blocked') return 'blocked';
+  if (status === 'warning') return 'warning';
+  return 'allowed';
+}
+
+function getSafetyLabel(status: SafetyCheckResult['result']): string {
+  if (status === 'blocked') return 'Không nên xác nhận uống lúc này';
+  if (status === 'warning') return 'Cần chú ý trước khi uống';
+  return 'Có thể uống theo lịch';
+}
+
+function getSafetyIcon(status: SafetyCheckResult['result']): keyof typeof Ionicons.glyphMap {
+  if (status === 'blocked') return 'stop-circle';
+  if (status === 'warning') return 'warning';
+  return 'shield-checkmark';
+}
+
+function CandidateCard({
+  candidate,
+  settings,
+}: {
+  candidate: MedicationScanCandidate;
+  settings: ReturnType<typeof getAccessibilitySettings>;
+}) {
   return (
     <View style={styles.candidateCard}>
       <View style={styles.candidateIcon}>
         <Ionicons name="medkit" size={21} color={blue.primary} />
       </View>
       <View style={styles.candidateBody}>
-        <Text style={styles.candidateName}>{candidate.name}</Text>
-        <Text style={styles.candidateMeta}>
+        <Text style={[styles.candidateName, { fontSize: scaleFont(typography.lead, settings) }]}>{candidate.name}</Text>
+        <Text style={[styles.candidateMeta, { fontSize: scaleFont(typography.small, settings) }]}>
           {[candidate.activeIngredient, candidate.strength, candidate.dosageForm].filter(Boolean).join(' · ') || 'Chưa đủ thông tin'}
         </Text>
       </View>
@@ -384,20 +623,28 @@ function CandidateCard({ candidate }: { candidate: MedicationScanCandidate }) {
   );
 }
 
-function NoCandidate() {
+function NoCandidate({ settings }: { settings: ReturnType<typeof getAccessibilitySettings> }) {
   return (
     <View style={styles.noCandidateBox}>
       <Ionicons name="alert-circle-outline" size={20} color={blue.primary} />
-      <Text style={styles.noCandidateText}>Nếu kết quả chưa chính xác, bạn vui lòng chọn hình ảnh từ thiết bị.</Text>
+      <Text style={[styles.noCandidateText, { fontSize: scaleFont(typography.small, settings) }]}>Nếu kết quả chưa chính xác, bạn vui lòng chọn hình ảnh từ thiết bị.</Text>
     </View>
   );
 }
 
-function InfoTile({ label, value }: { label: string; value: string | null }) {
+function InfoTile({
+  label,
+  value,
+  settings,
+}: {
+  label: string;
+  value: string | null;
+  settings: ReturnType<typeof getAccessibilitySettings>;
+}) {
   return (
     <View style={styles.infoTile}>
-      <Text style={styles.infoLabel}>{label}</Text>
-      <Text style={styles.infoValue}>{value ?? 'Chưa có'}</Text>
+      <Text style={[styles.infoLabel, { fontSize: scaleFont(12, settings) }]}>{label}</Text>
+      <Text style={[styles.infoValue, { fontSize: scaleFont(typography.body, settings) }]}>{value ?? 'Chưa có'}</Text>
     </View>
   );
 }
@@ -406,6 +653,9 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: blue.bg,
+  },
+  safeAreaContrast: {
+    backgroundColor: blue.white,
   },
   scrollContent: {
     paddingHorizontal: spacing.xl,
@@ -449,6 +699,10 @@ const styles = StyleSheet.create({
     color: blue.muted,
     fontSize: typography.body,
     fontWeight: '600',
+  },
+  cardContrast: {
+    borderColor: blue.primary,
+    borderWidth: 2,
   },
   cameraCard: {
     borderRadius: radius.lg,
@@ -847,7 +1101,100 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     lineHeight: 21,
   },
+  safetyInfoCard: {
+    borderRadius: radius.lg,
+    backgroundColor: blue.surface,
+    borderWidth: 1,
+    borderColor: blue.border,
+    padding: spacing.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+  },
+  safetyResultCard: {
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    padding: spacing.md,
+    gap: spacing.md,
+  },
+  safetyResultHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.md,
+  },
+  safetyIcon: {
+    width: 46,
+    height: 46,
+    borderRadius: radius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  safetyTitle: {
+    fontSize: typography.lead,
+    fontWeight: '900',
+    lineHeight: 24,
+  },
+  safetyMeta: {
+    color: blue.muted,
+    fontSize: typography.small,
+    fontWeight: '800',
+    lineHeight: 19,
+  },
+  reasonList: {
+    gap: spacing.sm,
+  },
+  reasonRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.sm,
+  },
+  reasonText: {
+    flex: 1,
+    color: blue.ink,
+    fontSize: typography.small,
+    fontWeight: '800',
+    lineHeight: 19,
+  },
+  suggestedAction: {
+    color: blue.ink,
+    fontSize: typography.small,
+    fontWeight: '900',
+    lineHeight: 19,
+  },
   resultActions: {
     gap: spacing.sm,
   },
 });
+
+const safetyResultStyles = StyleSheet.create({
+  allowed: {
+    backgroundColor: palette.primarySoft,
+    borderColor: palette.mutedLight,
+  },
+  warning: {
+    backgroundColor: palette.amberSoft,
+    borderColor: '#FFD995',
+  },
+  blocked: {
+    backgroundColor: palette.roseSoft,
+    borderColor: '#FFD0CB',
+  },
+});
+
+const safetyIconStyles = StyleSheet.create({
+  allowed: {
+    backgroundColor: blue.surface,
+  },
+  warning: {
+    backgroundColor: blue.surface,
+  },
+  blocked: {
+    backgroundColor: blue.surface,
+  },
+});
+
+const safetyTextColors = {
+  allowed: palette.primary,
+  warning: palette.amber,
+  blocked: palette.rose,
+};

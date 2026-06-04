@@ -1,7 +1,7 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useRouter } from 'expo-router';
-import React, { useState } from 'react';
+import React, { useState, type ComponentProps } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import {
   ActivityIndicator,
@@ -20,6 +20,14 @@ import * as z from 'zod';
 
 import { apiFetch } from '@/src/api/client';
 import { useAuthStore } from '@/src/store/auth';
+import {
+  accessibilityModeOptions,
+  getAccessibilitySettings,
+  scaleFont,
+  scaleSpace,
+  type AccessibilityMode,
+  useAccessibilityStore,
+} from '@/src/store/accessibility';
 import { palette, radius, shadows, spacing, typography } from '@/src/theme/pillpal';
 
 const loginSchema = z.object({
@@ -28,10 +36,19 @@ const loginSchema = z.object({
 });
 
 type LoginFormValues = z.infer<typeof loginSchema>;
+type IconName = ComponentProps<typeof Ionicons>['name'];
+
+const loginAccessibilityModes = accessibilityModeOptions.map((mode) => ({
+  ...mode,
+  icon: mode.icon as IconName,
+}));
 
 export default function LoginScreen() {
   const router = useRouter();
   const setSession = useAuthStore((state) => state.setSession);
+  const accessibilityMode = useAccessibilityStore((state) => state.mode);
+  const setAccessibilityMode = useAccessibilityStore((state) => state.setMode);
+  const settings = getAccessibilitySettings(accessibilityMode);
 
   const [showPassword, setShowPassword] = useState(false);
   const [loginError, setLoginError] = useState<string | null>(null);
@@ -83,48 +100,125 @@ export default function LoginScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
+    <SafeAreaView
+      style={[styles.safeArea, settings.highContrast && styles.safeAreaContrast]}
+      edges={['top', 'bottom']}>
       <StatusBar barStyle="dark-content" />
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardView}>
         <ScrollView
-          contentContainerStyle={styles.scrollContent}
+          contentContainerStyle={[
+            styles.scrollContent,
+            {
+              paddingHorizontal: settings.screenPadding,
+              paddingVertical: scaleSpace(spacing.xxl, settings),
+              gap: scaleSpace(spacing.lg, settings),
+            },
+          ]}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}>
-          <View style={styles.brandPanel}>
+          <View
+            style={[
+              styles.brandPanel,
+              { padding: settings.cardPadding, gap: scaleSpace(spacing.md, settings) },
+              settings.highContrast && styles.panelContrast,
+            ]}>
             <View style={styles.logoMark}>
               <Ionicons name="medical" size={34} color={palette.white} />
             </View>
             <View style={styles.brandCopy}>
-              <Text style={styles.eyebrow}>Medication safety</Text>
-              <Text style={styles.brandName}>PillPal</Text>
-              <Text style={styles.subtitle}>Kiểm tra đúng thuốc, đúng giờ và đúng liều trước khi uống.</Text>
+              {!settings.simplified ? (
+                <Text style={[styles.eyebrow, { fontSize: scaleFont(typography.eyebrow, settings) }]}>
+                  Medication safety
+                </Text>
+              ) : null}
+              <Text
+                style={[
+                  styles.brandName,
+                  { fontSize: scaleFont(typography.display, settings), lineHeight: scaleFont(40, settings) },
+                ]}>
+                PillPal
+              </Text>
+              {settings.showSecondaryText ? (
+                <Text
+                  style={[
+                    styles.subtitle,
+                    { fontSize: scaleFont(typography.body, settings), lineHeight: scaleFont(22, settings) },
+                  ]}>
+                  Kiểm tra đúng thuốc, đúng giờ và đúng liều trước khi uống.
+                </Text>
+              ) : null}
             </View>
           </View>
 
-          <View style={styles.formCard}>
+          <View
+            style={[
+              styles.modePanel,
+              { padding: settings.cardPadding, gap: scaleSpace(spacing.sm, settings) },
+              settings.highContrast && styles.panelContrast,
+            ]}>
+            <Text style={[styles.modeTitle, { fontSize: scaleFont(typography.lead, settings) }]}>
+              Chế độ hiển thị
+            </Text>
+            <View style={styles.modeRow}>
+              {loginAccessibilityModes.map((mode) => {
+                const isActive = mode.id === accessibilityMode;
+                return (
+                  <Pressable
+                    key={mode.id}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: isActive }}
+                    onPress={() => setAccessibilityMode(mode.id as AccessibilityMode)}
+                    style={({ pressed }) => [
+                      styles.modePill,
+                      { minHeight: settings.minTapTarget },
+                      isActive && styles.modePillActive,
+                      pressed && styles.pressed,
+                    ]}>
+                    <Ionicons name={mode.icon} size={scaleFont(18, settings)} color={isActive ? palette.white : palette.primary} />
+                    <Text
+                      numberOfLines={1}
+                      style={[
+                        styles.modeText,
+                        { fontSize: scaleFont(typography.small, settings) },
+                        isActive && styles.modeTextActive,
+                      ]}>
+                      {mode.label}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </View>
+
+          <View
+            style={[
+              styles.formCard,
+              { padding: settings.cardPadding, gap: scaleSpace(spacing.md, settings) },
+              settings.highContrast && styles.panelContrast,
+            ]}>
             <View style={styles.formHeader}>
-              <Text style={styles.title}>Đăng nhập</Text>
+              <Text style={[styles.title, { fontSize: scaleFont(26, settings) }]}>Đăng nhập</Text>
             </View>
 
             {loginError ? (
               <View style={styles.errorBanner}>
                 <Ionicons name="alert-circle" size={20} color={palette.rose} />
-                <Text style={styles.errorText}>{loginError}</Text>
+                <Text style={[styles.errorText, { fontSize: scaleFont(typography.small, settings) }]}>{loginError}</Text>
               </View>
             ) : null}
 
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>Email</Text>
+              <Text style={[styles.label, { fontSize: scaleFont(typography.small, settings) }]}>Email</Text>
               <Controller
                 control={control}
                 name="email"
                 render={({ field: { onChange, onBlur, value } }) => (
-                  <View style={[styles.inputWrapper, errors.email && styles.inputWrapperError]}>
+                  <View style={[styles.inputWrapper, { minHeight: settings.minTapTarget }, errors.email && styles.inputWrapperError]}>
                     <Ionicons name="mail-outline" size={20} color={palette.muted} />
                     <TextInput
-                      style={styles.input}
+                      style={[styles.input, { fontSize: scaleFont(typography.body, settings) }]}
                       placeholder="nhan.nguyen@example.com"
                       placeholderTextColor={palette.muted}
                       onBlur={onBlur}
@@ -137,19 +231,23 @@ export default function LoginScreen() {
                   </View>
                 )}
               />
-              {errors.email ? <Text style={styles.fieldErrorText}>{errors.email.message}</Text> : null}
+              {errors.email ? (
+                <Text style={[styles.fieldErrorText, { fontSize: scaleFont(typography.small, settings) }]}>
+                  {errors.email.message}
+                </Text>
+              ) : null}
             </View>
 
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>Mật khẩu</Text>
+              <Text style={[styles.label, { fontSize: scaleFont(typography.small, settings) }]}>Mật khẩu</Text>
               <Controller
                 control={control}
                 name="password"
                 render={({ field: { onChange, onBlur, value } }) => (
-                  <View style={[styles.inputWrapper, errors.password && styles.inputWrapperError]}>
+                  <View style={[styles.inputWrapper, { minHeight: settings.minTapTarget }, errors.password && styles.inputWrapperError]}>
                     <Ionicons name="lock-closed-outline" size={20} color={palette.muted} />
                     <TextInput
-                      style={styles.input}
+                      style={[styles.input, { fontSize: scaleFont(typography.body, settings) }]}
                       placeholder="Nhập mật khẩu"
                       placeholderTextColor={palette.muted}
                       onBlur={onBlur}
@@ -162,7 +260,15 @@ export default function LoginScreen() {
                     <Pressable
                       accessibilityRole="button"
                       onPress={() => setShowPassword((current) => !current)}
-                      style={styles.iconButton}>
+                      style={[
+                        styles.iconButton,
+                        {
+                          width: settings.minTapTarget,
+                          height: settings.minTapTarget,
+                          minHeight: settings.minTapTarget,
+                          minWidth: settings.minTapTarget,
+                        },
+                      ]}>
                       <Ionicons
                         name={showPassword ? 'eye-off-outline' : 'eye-outline'}
                         size={21}
@@ -172,7 +278,11 @@ export default function LoginScreen() {
                   </View>
                 )}
               />
-              {errors.password ? <Text style={styles.fieldErrorText}>{errors.password.message}</Text> : null}
+              {errors.password ? (
+                <Text style={[styles.fieldErrorText, { fontSize: scaleFont(typography.small, settings) }]}>
+                  {errors.password.message}
+                </Text>
+              ) : null}
             </View>
 
             <Pressable
@@ -181,6 +291,7 @@ export default function LoginScreen() {
               onPress={handleSubmit(onSubmit)}
               style={({ pressed }) => [
                 styles.submitButton,
+                { minHeight: settings.minTapTarget },
                 isLoading && styles.disabled,
                 pressed && styles.pressed,
               ]}>
@@ -188,16 +299,20 @@ export default function LoginScreen() {
                 <ActivityIndicator color={palette.white} size="small" />
               ) : (
                 <>
-                  <Text style={styles.submitText}>Đăng nhập</Text>
+                  <Text style={[styles.submitText, { fontSize: scaleFont(typography.body, settings) }]}>Đăng nhập</Text>
                   <Ionicons name="arrow-forward" size={19} color={palette.white} />
                 </>
               )}
             </Pressable>
 
-            <View style={styles.demoTip}>
-              <Ionicons name="shield-checkmark" size={18} color={palette.primary} />
-              <Text style={styles.demoTipText}>Mỗi request sẽ gửi kèm cookie và token phiên nếu có.</Text>
-            </View>
+            {!settings.simplified ? (
+              <View style={styles.demoTip}>
+                <Ionicons name="shield-checkmark" size={scaleFont(18, settings)} color={palette.primary} />
+                <Text style={[styles.demoTipText, { fontSize: scaleFont(typography.small, settings) }]}>
+                  Mỗi request sẽ gửi kèm cookie và token phiên nếu có.
+                </Text>
+              </View>
+            ) : null}
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -209,6 +324,9 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: palette.canvas,
+  },
+  safeAreaContrast: {
+    backgroundColor: palette.white,
   },
   keyboardView: {
     flex: 1,
@@ -229,6 +347,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.md,
+  },
+  panelContrast: {
+    backgroundColor: palette.white,
+    borderColor: palette.primary,
+    borderWidth: 2,
   },
   logoMark: {
     width: 68,
@@ -256,6 +379,47 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     letterSpacing: 0,
     lineHeight: 40,
+  },
+  modePanel: {
+    borderRadius: radius.lg,
+    backgroundColor: palette.surface,
+    borderWidth: 1,
+    borderColor: palette.mutedLight,
+    ...shadows.card,
+  },
+  modeTitle: {
+    color: palette.ink,
+    fontWeight: '900',
+  },
+  modeRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+  },
+  modePill: {
+    flexGrow: 1,
+    flexBasis: '45%',
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: palette.mutedLight,
+    backgroundColor: palette.white,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.sm,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xs,
+  },
+  modePillActive: {
+    backgroundColor: palette.primary,
+    borderColor: palette.primary,
+  },
+  modeText: {
+    color: palette.primary,
+    fontWeight: '900',
+  },
+  modeTextActive: {
+    color: palette.white,
   },
   subtitle: {
     color: palette.inkSoft,

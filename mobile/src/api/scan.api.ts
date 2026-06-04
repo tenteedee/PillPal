@@ -1,3 +1,5 @@
+import { Platform } from 'react-native';
+
 import { BASE_URL, createApiHeaders } from './client';
 
 export type UploadStaticFileResponse = {
@@ -99,11 +101,23 @@ function getAssetType(asset: ScanImageAsset): string {
     return asset.mimeType;
   }
 
+  const uriWithoutQuery = asset.uri.split('?')[0].toLowerCase();
+
+  const name = asset.fileName?.toLowerCase();
+
   if (asset.uri.startsWith('data:image/png')) {
     return 'image/png';
   }
 
   if (asset.uri.startsWith('data:image/webp')) {
+    return 'image/webp';
+  }
+
+  if (uriWithoutQuery.endsWith('.png') || name?.endsWith('.png')) {
+    return 'image/png';
+  }
+
+  if (uriWithoutQuery.endsWith('.webp') || name?.endsWith('.webp')) {
     return 'image/webp';
   }
 
@@ -114,7 +128,11 @@ async function appendUploadFile(formData: FormData, asset: ScanImageAsset): Prom
   const name = getAssetName(asset);
   const type = getAssetType(asset);
 
-  if (asset.uri.startsWith('data:')) {
+  if (
+    Platform.OS === 'web' ||
+    asset.uri.startsWith('data:') ||
+    asset.uri.startsWith('blob:')
+  ) {
     const blob = await fetch(asset.uri).then((response) => response.blob());
     formData.append('file', blob, name);
     return;

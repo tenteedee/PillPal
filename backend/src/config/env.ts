@@ -14,6 +14,7 @@ const envSchema = z.object({
   SUPABASE_STORAGE_BUCKET: z.string().default('medication-images'),
   OPENAI_API_KEY: z.string().optional(),
   OPENAI_MODEL: z.string().default('gpt-4.1-mini'),
+  EXPO_ACCESS_TOKEN: z.string().optional(),
   APP_TIMEZONE: z.string().default('Asia/Ho_Chi_Minh'),
   ENABLE_MOCK_AI_SCAN: z
     .string()
@@ -21,6 +22,13 @@ const envSchema = z.object({
     .transform((value) => value === 'true')
     .pipe(z.boolean())
     .catch(true),
+  ENABLE_SCHEDULE_REMINDER_JOB: z
+    .string()
+    .optional()
+    .transform((value) => value !== 'false')
+    .pipe(z.boolean())
+    .catch(true),
+  SCHEDULE_REMINDER_INTERVAL_MINUTES: z.coerce.number().int().min(1).default(30),
   DEMO_PROFILE_ID: z.string().uuid().optional(),
   ENABLE_DEMO_AUTH: z
     .string()

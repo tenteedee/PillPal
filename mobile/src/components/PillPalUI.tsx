@@ -1,5 +1,5 @@
-import Ionicons from '@expo/vector-icons/Ionicons';
-import { ComponentProps, PropsWithChildren } from 'react';
+import Ionicons from "@expo/vector-icons/Ionicons";
+import { ComponentProps, PropsWithChildren } from "react";
 import {
   Pressable,
   PressableProps,
@@ -10,27 +10,41 @@ import {
   TouchableOpacity,
   View,
   ViewStyle,
-} from 'react-native';
+} from "react-native";
 
-import { palette, radius, shadows, spacing, typography } from '@/src/theme/pillpal';
+import {
+  palette,
+  radius,
+  shadows,
+  spacing,
+  typography,
+} from "@/src/theme/pillpal";
+import {
+  getAccessibilitySettings,
+  scaleFont,
+  useAccessibilityStore,
+} from "@/src/store/accessibility";
 
-type IconName = ComponentProps<typeof Ionicons>['name'];
+type IconName = ComponentProps<typeof Ionicons>["name"];
 
 type AppButtonProps = PressableProps & {
   label: string;
   icon?: IconName;
-  variant?: 'primary' | 'secondary' | 'light' | 'danger' | 'ghost';
+  variant?: "primary" | "secondary" | "light" | "danger" | "ghost";
   style?: StyleProp<ViewStyle>;
 };
 
 export function AppButton({
   label,
   icon,
-  variant = 'primary',
+  variant = "primary",
   style,
   ...pressableProps
 }: AppButtonProps) {
-  const onDark = variant === 'primary' || variant === 'danger';
+  const onDark = variant === "primary" || variant === "danger";
+  const settings = getAccessibilitySettings(
+    useAccessibilityStore((state) => state.mode),
+  );
 
   return (
     <Pressable
@@ -38,18 +52,33 @@ export function AppButton({
       style={({ pressed }) => [
         styles.button,
         buttonStyles[variant],
+        {
+          minHeight: settings.minTapTarget,
+          paddingHorizontal: settings.cardPadding,
+        },
+        settings.highContrast &&
+          variant === "light" &&
+          styles.highContrastLight,
         pressed && styles.pressed,
         style,
       ]}
-      {...pressableProps}>
+      {...pressableProps}
+    >
       {icon ? (
         <Ionicons
           name={icon}
-          size={20}
+          size={scaleFont(20, settings)}
           color={onDark ? palette.white : palette.primary}
         />
       ) : null}
-      <Text numberOfLines={2} style={[styles.buttonText, onDark && styles.buttonTextOnDark]}>
+      <Text
+        numberOfLines={settings.simplified ? 1 : 2}
+        style={[
+          styles.buttonText,
+          { fontSize: scaleFont(typography.body, settings) },
+          onDark && styles.buttonTextOnDark,
+        ]}
+      >
         {label}
       </Text>
     </Pressable>
@@ -60,7 +89,27 @@ export function GlassCard({
   children,
   style,
 }: PropsWithChildren<{ style?: StyleProp<ViewStyle> }>) {
-  return <View style={[styles.card, style]}>{children}</View>;
+  const settings = getAccessibilitySettings(
+    useAccessibilityStore((state) => state.mode),
+  );
+
+  return (
+    <View
+      style={[
+        styles.card,
+        {
+          padding: settings.cardPadding,
+          borderColor: settings.highContrast
+            ? palette.primary
+            : "rgba(19, 35, 31, 0.06)",
+          borderWidth: settings.highContrast ? 2 : 1,
+        },
+        style,
+      ]}
+    >
+      {children}
+    </View>
+  );
 }
 
 export function AccentCard({
@@ -71,21 +120,66 @@ export function AccentCard({
   actionLabel,
 }: {
   icon: IconName;
-  tone: 'primary' | 'blue' | 'amber' | 'rose' | 'violet';
+  tone: "primary" | "blue" | "amber" | "rose" | "violet";
   title: string;
   body: string;
   actionLabel?: string;
 }) {
+  const settings = getAccessibilitySettings(
+    useAccessibilityStore((state) => state.mode),
+  );
+
   return (
-    <View style={[styles.accentCard, accentStyles[tone]]}>
+    <View
+      style={[
+        styles.accentCard,
+        accentStyles[tone],
+        {
+          padding: settings.cardPadding,
+          minHeight: settings.simplified ? 132 : 172,
+          borderWidth: settings.highContrast ? 2 : 0,
+          borderColor: settings.highContrast ? iconColors[tone] : "transparent",
+        },
+      ]}
+    >
       <View style={[styles.iconBadge, iconBadgeStyles[tone]]}>
-        <Ionicons name={icon} size={22} color={iconColors[tone]} />
+        <Ionicons
+          name={icon}
+          size={scaleFont(22, settings)}
+          color={iconColors[tone]}
+        />
       </View>
       <View style={styles.accentCopy}>
-        <Text style={styles.cardTitle}>{title}</Text>
-        <Text style={styles.cardBody}>{body}</Text>
+        <Text
+          style={[
+            styles.cardTitle,
+            { fontSize: scaleFont(typography.lead, settings) },
+          ]}
+        >
+          {title}
+        </Text>
+        {settings.showSecondaryText ? (
+          <Text
+            style={[
+              styles.cardBody,
+              { fontSize: scaleFont(typography.body, settings) },
+            ]}
+          >
+            {body}
+          </Text>
+        ) : null}
       </View>
-      {actionLabel ? <Text style={[styles.textAction, textActionStyles[tone]]}>{actionLabel}</Text> : null}
+      {actionLabel && !settings.simplified ? (
+        <Text
+          style={[
+            styles.textAction,
+            textActionStyles[tone],
+            { fontSize: scaleFont(typography.small, settings) },
+          ]}
+        >
+          {actionLabel}
+        </Text>
+      ) : null}
     </View>
   );
 }
@@ -101,14 +195,40 @@ export function EmptyState({
   body: string;
   actionLabel?: string;
 }) {
+  const settings = getAccessibilitySettings(
+    useAccessibilityStore((state) => state.mode),
+  );
+
   return (
     <GlassCard style={styles.emptyState}>
       <View style={styles.emptyIcon}>
-        <Ionicons name={icon} size={30} color={palette.primary} />
+        <Ionicons
+          name={icon}
+          size={scaleFont(30, settings)}
+          color={palette.primary}
+        />
       </View>
-      <Text style={styles.emptyTitle}>{title}</Text>
-      <Text style={styles.emptyBody}>{body}</Text>
-      {actionLabel ? <AppButton label={actionLabel} icon="add" variant="secondary" /> : null}
+      <Text
+        style={[
+          styles.emptyTitle,
+          { fontSize: scaleFont(typography.lead, settings) },
+        ]}
+      >
+        {title}
+      </Text>
+      {settings.showSecondaryText ? (
+        <Text
+          style={[
+            styles.emptyBody,
+            { fontSize: scaleFont(typography.body, settings) },
+          ]}
+        >
+          {body}
+        </Text>
+      ) : null}
+      {actionLabel ? (
+        <AppButton label={actionLabel} icon="add" variant="secondary" />
+      ) : null}
     </GlassCard>
   );
 }
@@ -122,34 +242,78 @@ export function SectionTitle({
   action?: string;
   onAction?: () => void;
 }) {
+  const settings = getAccessibilitySettings(
+    useAccessibilityStore((state) => state.mode),
+  );
+
   return (
     <View style={styles.sectionTitle}>
-      <Text style={styles.sectionHeading}>{title}</Text>
-      {action ? (
-        <TouchableOpacity onPress={onAction} disabled={!onAction}>
-          <Text style={styles.sectionAction}>{action}</Text>
-        </TouchableOpacity>
+      <Text
+        style={[
+          styles.sectionHeading,
+          { fontSize: scaleFont(typography.lead, settings) },
+        ]}
+      >
+        {title}
+      </Text>
+      {action && !settings.simplified ? (
+        <Text
+          style={[
+            styles.sectionAction,
+            { fontSize: scaleFont(typography.small, settings) },
+          ]}
+        >
+          {action}
+        </Text>
       ) : null}
     </View>
   );
 }
 
-
 export function StatusChip({
   label,
   icon,
-  tone = 'primary',
+  tone = "primary",
   style,
 }: {
   label: string;
   icon: IconName;
-  tone?: 'primary' | 'blue' | 'amber' | 'rose' | 'violet';
+  tone?: "primary" | "blue" | "amber" | "rose" | "violet";
   style?: StyleProp<ViewStyle>;
 }) {
+  const settings = getAccessibilitySettings(
+    useAccessibilityStore((state) => state.mode),
+  );
+
   return (
-    <View style={[styles.statusChip, iconBadgeStyles[tone], style]}>
-      <Ionicons name={icon} size={16} color={iconColors[tone]} />
-      <Text style={[styles.statusLabel, { color: iconColors[tone] }]}>{label}</Text>
+    <View
+      style={[
+        styles.statusChip,
+        iconBadgeStyles[tone],
+        {
+          minHeight: Math.max(38, Math.round(settings.minTapTarget * 0.7)),
+          borderWidth: settings.highContrast ? 1 : 0,
+          borderColor: iconColors[tone],
+        },
+        style,
+      ]}
+    >
+      <Ionicons
+        name={icon}
+        size={scaleFont(16, settings)}
+        color={iconColors[tone]}
+      />
+      <Text
+        style={[
+          styles.statusLabel,
+          {
+            color: iconColors[tone],
+            fontSize: scaleFont(typography.small, settings),
+          },
+        ]}
+      >
+        {label}
+      </Text>
     </View>
   );
 }
@@ -157,16 +321,42 @@ export function StatusChip({
 export function MetricTile({
   label,
   value,
-  tone = 'primary',
+  tone = "primary",
 }: {
   label: string;
   value: string;
-  tone?: 'primary' | 'blue' | 'amber' | 'rose' | 'violet';
+  tone?: "primary" | "blue" | "amber" | "rose" | "violet";
 }) {
+  const settings = getAccessibilitySettings(
+    useAccessibilityStore((state) => state.mode),
+  );
+
   return (
-    <View style={[styles.metricTile, metricStyles[tone]]}>
-      <Text style={styles.metricValue}>{value}</Text>
-      <Text style={styles.metricLabel}>{label}</Text>
+    <View
+      style={[
+        styles.metricTile,
+        metricStyles[tone],
+        {
+          minHeight: settings.simplified
+            ? 82
+            : Math.round(92 * settings.spacingScale),
+          padding: settings.cardPadding,
+          borderWidth: settings.highContrast ? 1 : 0,
+          borderColor: iconColors[tone],
+        },
+      ]}
+    >
+      <Text style={[styles.metricValue, { fontSize: scaleFont(26, settings) }]}>
+        {value}
+      </Text>
+      <Text
+        style={[
+          styles.metricLabel,
+          { fontSize: scaleFont(typography.small, settings) },
+        ]}
+      >
+        {label}
+      </Text>
     </View>
   );
 }
@@ -187,7 +377,7 @@ const buttonStyles = StyleSheet.create({
     backgroundColor: palette.rose,
   },
   ghost: {
-    backgroundColor: 'transparent',
+    backgroundColor: "transparent",
   },
 });
 
@@ -197,9 +387,9 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexDirection: 'row',
+    alignItems: "center",
+    justifyContent: "center",
+    flexDirection: "row",
     gap: spacing.sm,
   },
   pressed: {
@@ -209,19 +399,23 @@ const styles = StyleSheet.create({
   buttonText: {
     color: palette.primary,
     fontSize: typography.body,
-    fontWeight: '800',
+    fontWeight: "800",
     letterSpacing: 0,
-    textAlign: 'center',
+    textAlign: "center",
   },
   buttonTextOnDark: {
     color: palette.white,
+  },
+  highContrastLight: {
+    borderColor: palette.primary,
+    borderWidth: 2,
   },
   card: {
     backgroundColor: palette.surface,
     borderRadius: radius.lg,
     padding: spacing.lg,
     borderWidth: 1,
-    borderColor: 'rgba(19, 35, 31, 0.06)',
+    borderColor: "rgba(19, 35, 31, 0.06)",
     ...shadows.card,
   },
   accentCard: {
@@ -234,8 +428,8 @@ const styles = StyleSheet.create({
     width: 46,
     height: 46,
     borderRadius: radius.md,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   accentCopy: {
     gap: spacing.xs,
@@ -243,22 +437,22 @@ const styles = StyleSheet.create({
   cardTitle: {
     color: palette.ink,
     fontSize: typography.lead,
-    fontWeight: '900',
+    fontWeight: "900",
     lineHeight: 24,
   },
   cardBody: {
     color: palette.inkSoft,
     fontSize: typography.body,
-    fontWeight: '500',
+    fontWeight: "500",
     lineHeight: 23,
   },
   textAction: {
-    marginTop: 'auto',
+    marginTop: "auto",
     fontSize: typography.small,
-    fontWeight: '900',
+    fontWeight: "900",
   },
   emptyState: {
-    alignItems: 'center',
+    alignItems: "center",
     gap: spacing.md,
     paddingVertical: spacing.xl,
   },
@@ -266,67 +460,67 @@ const styles = StyleSheet.create({
     width: 62,
     height: 62,
     borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     backgroundColor: palette.primarySoft,
   },
   emptyTitle: {
     color: palette.ink,
     fontSize: typography.lead,
-    fontWeight: '900',
-    textAlign: 'center',
+    fontWeight: "900",
+    textAlign: "center",
   },
   emptyBody: {
     color: palette.muted,
     fontSize: typography.body,
-    fontWeight: '500',
+    fontWeight: "500",
     lineHeight: 23,
-    textAlign: 'center',
+    textAlign: "center",
   },
   sectionTitle: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     gap: spacing.md,
   },
   sectionHeading: {
     color: palette.ink,
     fontSize: typography.lead,
-    fontWeight: '900',
+    fontWeight: "900",
   },
   sectionAction: {
     color: palette.primary,
     fontSize: typography.small,
-    fontWeight: '900',
+    fontWeight: "900",
   },
   statusChip: {
     minHeight: 38,
     borderRadius: radius.sm,
     paddingHorizontal: spacing.md,
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: spacing.xs,
   },
   statusLabel: {
     fontSize: typography.small,
-    fontWeight: '900',
+    fontWeight: "900",
   },
   metricTile: {
     flex: 1,
     minHeight: 92,
     borderRadius: radius.md,
     padding: spacing.md,
-    justifyContent: 'space-between',
+    justifyContent: "space-between",
   },
   metricValue: {
     color: palette.ink,
     fontSize: 26,
-    fontWeight: '900',
+    fontWeight: "900",
   },
   metricLabel: {
     color: palette.inkSoft,
     fontSize: typography.small,
-    fontWeight: '800',
+    fontWeight: "800",
     lineHeight: 18,
   },
 });

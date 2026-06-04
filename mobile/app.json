@@ -47,6 +47,13 @@
             "backgroundColor": "#000000"
           }
         }
+      ],
+      [
+        "expo-notifications",
+        {
+          "color": "#1769E0",
+          "defaultChannel": "pillpal-caregiver-alerts"
+        }
       ]
     ],
     "experiments": {

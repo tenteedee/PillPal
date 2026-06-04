@@ -196,6 +196,131 @@ Deactivate a push token belonging to the current user.
 
 ---
 
+# Notifications
+
+## GET `/notifications`
+
+List notification events for the current user's profile.
+
+Query:
+
+```txt
+?status=pending&eventType=safety_blocked&page=1&limit=20
+```
+
+`status` values:
+
+```txt
+pending
+sent
+failed
+cancelled
+```
+
+Initial `eventType` values:
+
+```txt
+safety_blocked
+safety_warning
+intake_confirmed
+intake_confirmed_after_warning
+dose_missed
+medication_reminder
+scan_unknown_medicine
+test
+```
+
+Response:
+
+```json
+{
+  "data": [
+    {
+      "id": "notification-event-id",
+      "patientProfileId": "patient-profile-id-or-null",
+      "recipientProfileId": "recipient-profile-id",
+      "eventType": "safety_blocked",
+      "title": "Blocked safety check",
+      "body": "Patient tried to take a medicine with a known allergy risk.",
+      "payload": {
+        "safetyCheckEventId": "uuid"
+      },
+      "status": "pending",
+      "errorMessage": null,
+      "sentAt": null,
+      "createdAt": "2026-06-04T00:00:00.000Z",
+      "updatedAt": "2026-06-04T00:00:00.000Z"
+    }
+  ]
+}
+```
+
+This stage stores notification intent/history only. Expo sending is added in a later stage.
+
+## GET `/notifications/:id`
+
+Get notification event detail for the current user's profile.
+
+The current user can only read notifications where they are the recipient.
+
+Response:
+
+```json
+{
+  "data": {
+    "id": "notification-event-id",
+    "patientProfileId": "patient-profile-id-or-null",
+    "recipientProfileId": "recipient-profile-id",
+    "eventType": "safety_blocked",
+    "title": "Blocked safety check",
+    "body": "Patient tried to take a medicine with a known allergy risk.",
+    "payload": {
+      "safetyCheckEventId": "uuid"
+    },
+    "status": "sent",
+    "errorMessage": null,
+    "sentAt": "2026-06-04T00:00:00.000Z",
+    "createdAt": "2026-06-04T00:00:00.000Z",
+    "updatedAt": "2026-06-04T00:00:00.000Z"
+  }
+}
+```
+
+## POST `/notifications/:id/send`
+
+Send a notification event through Expo Push Service.
+
+This is a development/debug endpoint for Stage 4. The current user can only send notifications where they are the recipient.
+
+Behavior:
+
+1. Load notification event.
+2. Load current recipient's active push tokens.
+3. Send Expo push notification.
+4. Mark event `sent` if Expo accepts at least one ticket.
+5. Mark event `failed` if no active tokens exist or all tickets fail.
+
+Response:
+
+```json
+{
+  "data": {
+    "notification": {
+      "id": "notification-event-id",
+      "status": "sent"
+    },
+    "tickets": [
+      {
+        "status": "ok",
+        "id": "expo-ticket-id"
+      }
+    ]
+  }
+}
+```
+
+---
+
 # Medication catalog
 
 ## GET `/medication-catalogs/search?q=...`
@@ -292,11 +417,25 @@ Request:
 }
 ```
 
-## PATCH `/schedules/:id`
+## PUT `/schedules/:id`
 
-Update schedule.
+Replace schedule. Update APIs use `PUT` and must pass the full object.
 
-## PATCH `/schedules/:id/pause`
+Request:
+
+```json
+{
+  "userMedicationId": "uuid",
+  "doseAmount": "1 viên",
+  "times": ["08:00", "20:00"],
+  "timesPerDay": 2,
+  "minIntervalHours": 8,
+  "instruction": "Uống sau ăn",
+  "isActive": true
+}
+```
+
+## PUT `/schedules/:id/pause`
 
 Pause schedule.
 
@@ -380,17 +519,23 @@ Response:
 ```json
 {
   "data": {
-    "safetyCheckEventId": "uuid",
-    "status": "warning",
+    "id": "uuid",
+    "profileId": "profile-id",
+    "userMedicationId": "uuid",
+    "scheduleId": "uuid-or-null",
+    "scheduledTime": "08:00",
+    "result": "warning",
     "canConfirmIntake": true,
     "reasons": [
       {
-        "code": "TOO_EARLY_FOR_SCHEDULE",
+        "code": "TOO_EARLY",
         "severity": "warning",
-        "message": "Hiện tại có vẻ chưa đến giờ uống thuốc này."
+        "message": "It is too early to take this scheduled dose."
       }
     ],
-    "suggestedAction": "Vui lòng kiểm tra lại lịch uống hoặc hỏi người hỗ trợ nếu bạn không chắc."
+    "suggestedAction": "Please confirm the information carefully. If unsure, ask a caregiver, pharmacist, or doctor.",
+    "checkedAt": "2026-06-04T00:00:00.000Z",
+    "source": "today_plan"
   }
 }
 ```
