@@ -39,6 +39,7 @@ export async function apiFetch<T>(
   const { accessToken } = useAuthStore.getState();
   if (accessToken) {
     headers.set('Authorization', `Bearer ${accessToken}`);
+    headers.set('Cookie', `pillpal_access_token=${accessToken}`);
   }
 
   const response = await fetch(url, {

@@ -7,6 +7,7 @@ import {
   StyleSheet,
   Text,
   TextStyle,
+  TouchableOpacity,
   View,
   ViewStyle,
 } from 'react-native';
@@ -115,17 +116,24 @@ export function EmptyState({
 export function SectionTitle({
   title,
   action,
+  onAction,
 }: {
   title: string;
   action?: string;
+  onAction?: () => void;
 }) {
   return (
     <View style={styles.sectionTitle}>
       <Text style={styles.sectionHeading}>{title}</Text>
-      {action ? <Text style={styles.sectionAction}>{action}</Text> : null}
+      {action ? (
+        <TouchableOpacity onPress={onAction} disabled={!onAction}>
+          <Text style={styles.sectionAction}>{action}</Text>
+        </TouchableOpacity>
+      ) : null}
     </View>
   );
 }
+
 
 export function StatusChip({
   label,
