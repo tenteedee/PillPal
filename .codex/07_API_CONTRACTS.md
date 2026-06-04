@@ -566,39 +566,115 @@ Important safety behavior:
 
 Confirm intake.
 
+This endpoint must be called after `/safety/check`. It records that the user actually took the medication and becomes the source of truth for later `minIntervalHours`, last-taken, and daily dose checks.
+
 Request:
 
 ```json
 {
   "userMedicationId": "uuid",
-  "scheduleId": "uuid-or-null",
-  "scheduledTime": "08:00",
+  "scheduleId": null,
+  "scheduledTime": null,
   "doseAmount": "1 viên",
   "safetyCheckEventId": "uuid",
   "confirmedAfterWarning": false
 }
 ```
 
-Backend must reject if related safety check is `blocked`.
+Optional request fields:
 
-## GET `/intakes/history?date=YYYY-MM-DD`
+```txt
+scheduleId
+scheduledTime
+doseAmount
+confirmedAfterWarning
+takenAt
+```
 
-Daily intake history.
+Backend behavior:
 
-## POST `/intakes/missed`
+- Verifies the medication belongs to the current user.
+- Verifies the optional schedule belongs to the current user and selected medication.
+- Verifies the safety check belongs to the current user and selected medication.
+- Rejects if the safety check result is `blocked` or `canConfirmIntake = false`.
+- Creates an `intake_events` row with `status = taken`.
+- If the safety check result was `warning`, stores the warning reasons in `warningSnapshot`.
 
-Mark dose missed.
-
-Request:
+Response:
 
 ```json
 {
-  "userMedicationId": "uuid",
-  "scheduleId": "uuid",
-  "scheduledTime": "20:00",
-  "date": "2026-05-31"
+  "data": {
+    "id": "uuid",
+    "profileId": "uuid",
+    "userMedicationId": "uuid",
+    "scheduleId": null,
+    "scheduledTime": null,
+    "doseAmount": "1 viên",
+    "takenAt": "2026-06-05T10:00:00.000Z",
+    "status": "taken",
+    "confirmedBy": "user",
+    "safetyCheckEventId": "uuid",
+    "warningSnapshot": [],
+    "confirmedAfterWarning": false,
+    "createdAt": "2026-06-05T10:00:00.000Z"
+  },
+  "message": "Created"
 }
 ```
+
+## GET `/intakes`
+
+List current user's intake history.
+
+Query:
+
+```txt
+?userMedicationId=uuid&scheduleId=uuid&status=taken&takenFrom=2026-06-05T00:00:00.000Z&takenTo=2026-06-06T00:00:00.000Z&page=1&limit=20
+```
+
+Filters are optional.
+
+`status` values:
+
+```txt
+taken
+missed
+skipped
+blocked_attempt
+```
+
+Response:
+
+```json
+{
+  "data": [
+    {
+      "id": "uuid",
+      "profileId": "uuid",
+      "userMedicationId": "uuid",
+      "scheduleId": "uuid-or-null",
+      "scheduledTime": "08:00",
+      "doseAmount": "1 viên",
+      "takenAt": "2026-06-05T01:00:00.000Z",
+      "status": "taken",
+      "confirmedBy": "user",
+      "safetyCheckEventId": "uuid",
+      "warningSnapshot": [],
+      "confirmedAfterWarning": false,
+      "createdAt": "2026-06-05T01:00:00.000Z"
+    }
+  ]
+}
+```
+
+## GET `/intakes/today`
+
+List today's intake events for the current user using backend `APP_TIMEZONE`.
+
+This is the simplest endpoint for mobile history widgets and daily plan refresh after confirming an intake.
+
+Missed/skipped dose APIs are not implemented in this stage. For the MVP, missed state is derived by daily plan from schedule time and absence of a `taken` intake event.
 
 ---
 

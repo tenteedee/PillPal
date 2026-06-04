@@ -18,6 +18,8 @@ export const ERROR_MESSAGE = {
   PUSH_TOKEN_NOT_FOUND: "Push token not found",
   NOTIFICATION_EVENT_NOT_FOUND: "Notification event not found",
   EXPO_PUSH_SEND_FAILED: "Expo push send failed",
+  SAFETY_CHECK_NOT_FOUND: "Safety check not found",
+  INTAKE_NOT_ALLOWED: "This intake cannot be confirmed",
   AUTH_SIGNUP_FAILED: "Signup failed",
   AUTH_LOGIN_FAILED: "Login failed",
   AUTH_LOGOUT_FAILED: "Logout failed",

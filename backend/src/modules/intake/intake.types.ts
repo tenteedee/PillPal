@@ -14,3 +14,19 @@ export type IntakeEventRow = {
   warning_snapshot: unknown;
   created_at: string;
 };
+
+export type IntakeEventDto = {
+  id: string;
+  profileId: string;
+  userMedicationId: string;
+  scheduleId: string | null;
+  scheduledTime: string | null;
+  doseAmount: string | null;
+  takenAt: string;
+  status: IntakeStatus;
+  confirmedBy: string;
+  safetyCheckEventId: string | null;
+  warningSnapshot: unknown;
+  confirmedAfterWarning: boolean;
+  createdAt: string;
+};
