@@ -7,6 +7,7 @@ import {
   StyleSheet,
   Text,
   TextStyle,
+  TouchableOpacity,
   View,
   ViewStyle,
 } from 'react-native';
@@ -153,11 +154,13 @@ export function EmptyState({
   title,
   body,
   actionLabel,
+  onPress,
 }: {
   icon: IconName;
   title: string;
   body: string;
   actionLabel?: string;
+  onPress?: () => void;
 }) {
   const settings = getAccessibilitySettings(useAccessibilityStore((state) => state.mode));
 
@@ -174,7 +177,14 @@ export function EmptyState({
           {body}
         </Text>
       ) : null}
-      {actionLabel ? <AppButton label={actionLabel} icon="add" variant="secondary" /> : null}
+      {actionLabel ? (
+        <AppButton
+          label={actionLabel}
+          icon="add"
+          variant="secondary"
+          onPress={onPress}
+        />
+      ) : null}
     </GlassCard>
   );
 }
@@ -182,9 +192,11 @@ export function EmptyState({
 export function SectionTitle({
   title,
   action,
+  onAction,
 }: {
   title: string;
   action?: string;
+  onAction?: () => void;
 }) {
   const settings = getAccessibilitySettings(useAccessibilityStore((state) => state.mode));
 
@@ -201,6 +213,7 @@ export function SectionTitle({
     </View>
   );
 }
+
 
 export function StatusChip({
   label,
