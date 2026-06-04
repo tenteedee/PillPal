@@ -11,6 +11,7 @@ export const ERROR_MESSAGE = {
   SCHEDULE_NOT_FOUND: "Schedule not found",
   INVALID_UPLOAD_FILE: "Invalid upload file",
   STATIC_FILE_NOT_FOUND: "Static file not found",
+  AI_SCAN_FAILED: "AI scan failed",
   AUTH_SIGNUP_FAILED: "Signup failed",
   AUTH_LOGIN_FAILED: "Login failed",
   AUTH_LOGOUT_FAILED: "Logout failed",

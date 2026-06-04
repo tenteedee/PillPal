@@ -363,13 +363,13 @@ Return uploaded static file metadata for the current user.
 
 ## POST `/ai/scan-medication`
 
-Upload image or pass image URL. Returns candidates only.
+Pass uploaded static file id. Returns candidates only.
 
-Request option A:
+Request:
 
 ```json
 {
-  "imageUrl": "https://..."
+  "staticId": "uuid"
 }
 ```
 
@@ -379,18 +379,33 @@ Response:
 {
   "data": {
     "scanAttemptId": "uuid",
+    "staticId": "uuid",
+    "imageUrl": "https://...",
+    "extractedData": {
+      "name": "Metformin 500mg",
+      "activeIngredient": "Metformin",
+      "strength": "500mg",
+      "dosageForm": "Tablet",
+      "manufacturer": null,
+      "visibleText": ["Metformin", "500mg"],
+      "confidence": 0.9
+    },
     "candidates": [
       {
+        "catalogId": "uuid",
+        "userMedicationId": "uuid-or-null",
         "name": "Metformin 500mg",
         "activeIngredient": "Metformin",
         "strength": "500mg",
         "dosageForm": "Tablet",
+        "manufacturer": "Demo Manufacturer",
         "confidence": 0.82,
-        "matchedUserMedicationId": "uuid-or-null",
-        "reason": "The package text appears similar to Metformin 500mg."
+        "matchStatus": "user_medication_matched",
+        "reason": "Matched an active user medication by name, active ingredient, strength."
       }
     ],
-    "needsUserConfirmation": true
+    "needsUserConfirmation": true,
+    "source": "openai"
   }
 }
 ```
