@@ -196,6 +196,97 @@ Deactivate a push token belonging to the current user.
 
 ---
 
+# Notifications
+
+## GET `/notifications`
+
+List notification events for the current user's profile.
+
+Query:
+
+```txt
+?status=pending&eventType=safety_blocked&page=1&limit=20
+```
+
+`status` values:
+
+```txt
+pending
+sent
+failed
+cancelled
+```
+
+Initial `eventType` values:
+
+```txt
+safety_blocked
+safety_warning
+intake_confirmed
+intake_confirmed_after_warning
+dose_missed
+scan_unknown_medicine
+test
+```
+
+Response:
+
+```json
+{
+  "data": [
+    {
+      "id": "notification-event-id",
+      "patientProfileId": "patient-profile-id-or-null",
+      "recipientProfileId": "recipient-profile-id",
+      "eventType": "safety_blocked",
+      "title": "Blocked safety check",
+      "body": "Patient tried to take a medicine with a known allergy risk.",
+      "payload": {
+        "safetyCheckEventId": "uuid"
+      },
+      "status": "pending",
+      "errorMessage": null,
+      "sentAt": null,
+      "createdAt": "2026-06-04T00:00:00.000Z",
+      "updatedAt": "2026-06-04T00:00:00.000Z"
+    }
+  ]
+}
+```
+
+This stage stores notification intent/history only. Expo sending is added in a later stage.
+
+## GET `/notifications/:id`
+
+Get notification event detail for the current user's profile.
+
+The current user can only read notifications where they are the recipient.
+
+Response:
+
+```json
+{
+  "data": {
+    "id": "notification-event-id",
+    "patientProfileId": "patient-profile-id-or-null",
+    "recipientProfileId": "recipient-profile-id",
+    "eventType": "safety_blocked",
+    "title": "Blocked safety check",
+    "body": "Patient tried to take a medicine with a known allergy risk.",
+    "payload": {
+      "safetyCheckEventId": "uuid"
+    },
+    "status": "sent",
+    "errorMessage": null,
+    "sentAt": "2026-06-04T00:00:00.000Z",
+    "createdAt": "2026-06-04T00:00:00.000Z",
+    "updatedAt": "2026-06-04T00:00:00.000Z"
+  }
+}
+```
+
+---
+
 # Medication catalog
 
 ## GET `/medication-catalogs/search?q=...`
