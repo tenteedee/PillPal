@@ -140,10 +140,12 @@ const styles = StyleSheet.create({
   },
   actions: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: spacing.md,
   },
   action: {
     flex: 1,
+    minWidth: 148,
   },
   cards: {
     gap: spacing.md,

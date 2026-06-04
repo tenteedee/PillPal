@@ -1,13 +1,19 @@
-import { Platform } from 'react-native';
-import { useAuthStore } from '../store/auth';
+import { Platform } from "react-native";
+import { useAuthStore } from "../store/auth";
 
-// Helper to determine base URL depending on platform
+const envApiBaseUrl = process.env.EXPO_PUBLIC_API_BASE_URL;
+const envAuthToken = process.env.EXPO_PUBLIC_AUTH_TOKEN;
+
 const getBaseUrl = () => {
-  // Check if we have an environment override, or use default emulator/localhost ports
-  if (Platform.OS === 'android') {
-    return 'http://10.0.2.2:4000/api/v1';
+  if (envApiBaseUrl) {
+    return envApiBaseUrl;
   }
-  return 'http://localhost:4000/api/v1';
+
+  if (Platform.OS === "android") {
+    return "http://10.0.2.2:4000/api/v1";
+  }
+
+  return "http://localhost:4000/api/v1";
 };
 
 export const BASE_URL = getBaseUrl();
@@ -23,23 +29,49 @@ export interface ApiResponse<T> {
   };
 }
 
+export function createApiHeaders(
+  options: {
+    headers?: HeadersInit;
+    hasJsonBody?: boolean;
+    hasFormDataBody?: boolean;
+  } = {},
+): Headers {
+  const headers = new Headers(options.headers || {});
+
+  if (
+    !headers.has("Content-Type") &&
+    options.hasJsonBody &&
+    !options.hasFormDataBody
+  ) {
+    headers.set("Content-Type", "application/json");
+  }
+
+  const { accessToken } = useAuthStore.getState();
+  const token = accessToken ?? envAuthToken;
+  if (token && !headers.has("Authorization")) {
+    headers.set("Authorization", "Bearer " + token);
+  }
+
+  return headers;
+}
+
 export async function apiFetch<T>(
   path: string,
-  options: RequestInit = {}
+  options: RequestInit = {},
 ): Promise<T> {
-  const url = `${BASE_URL}${path.startsWith('/') ? '' : '/'}${path}`;
+  const url = `${BASE_URL}${path.startsWith("/") ? "" : "/"}${path}`;
   const headers = new Headers(options.headers || {});
 
   // Set Content-Type default
-  if (!headers.has('Content-Type') && !(options.body instanceof FormData)) {
-    headers.set('Content-Type', 'application/json');
+  if (!headers.has("Content-Type") && !(options.body instanceof FormData)) {
+    headers.set("Content-Type", "application/json");
   }
 
   // Get JWT token from auth store
   const { accessToken } = useAuthStore.getState();
   if (accessToken) {
-    headers.set('Authorization', `Bearer ${accessToken}`);
-    headers.set('Cookie', `pillpal_access_token=${accessToken}`);
+    headers.set("Authorization", `Bearer ${accessToken}`);
+    headers.set("Cookie", `pillpal_access_token=${accessToken}`);
   }
 
   const response = await fetch(url, {
@@ -59,7 +91,10 @@ export async function apiFetch<T>(
   }
 
   if (!response.ok) {
-    const errorMsg = json?.error?.message || json?.message || `Request failed with status ${response.status}`;
+    const errorMsg =
+      json?.error?.message ||
+      json?.message ||
+      `Request failed with status ${response.status}`;
     throw new Error(errorMsg);
   }
 

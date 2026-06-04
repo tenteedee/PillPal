@@ -1,17 +1,17 @@
 import { Platform } from 'react-native';
 
 export const palette = {
-  canvas: '#F7F9FA',
-  canvasStrong: '#EAF2EF',
+  canvas: '#F7FBFF',
+  canvasStrong: '#EAF3FF',
   surface: '#FFFFFF',
   surfaceWarm: '#FFF8E8',
-  ink: '#13231F',
-  inkSoft: '#344943',
-  muted: '#667872',
-  mutedLight: '#DCE6E2',
-  primary: '#116A5C',
-  primaryDark: '#0A493F',
-  primarySoft: '#DDF3EC',
+  ink: '#0B1F3A',
+  inkSoft: '#365675',
+  muted: '#6B7F96',
+  mutedLight: '#D6E7FF',
+  primary: '#1769E0',
+  primaryDark: '#0D47A1',
+  primarySoft: '#EAF3FF',
   blue: '#315CA8',
   blueSoft: '#E6EEFF',
   amber: '#B56D12',
@@ -51,9 +51,9 @@ export const typography = {
 
 export const shadows = {
   card: Platform.select({
-    web: { boxShadow: '0 10px 24px rgba(11, 20, 18, 0.08)' },
+    web: { boxShadow: '0 10px 24px rgba(11, 31, 58, 0.08)' },
     default: {
-      shadowColor: '#0B1412',
+      shadowColor: '#0B1F3A',
       shadowOffset: { width: 0, height: 10 },
       shadowOpacity: 0.08,
       shadowRadius: 24,
@@ -61,9 +61,9 @@ export const shadows = {
     },
   }),
   lift: Platform.select({
-    web: { boxShadow: '0 16px 30px rgba(11, 20, 18, 0.12)' },
+    web: { boxShadow: '0 16px 30px rgba(11, 31, 58, 0.12)' },
     default: {
-      shadowColor: '#0B1412',
+      shadowColor: '#0B1F3A',
       shadowOffset: { width: 0, height: 16 },
       shadowOpacity: 0.12,
       shadowRadius: 30,

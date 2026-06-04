@@ -399,14 +399,17 @@ export default function PersonalCabinetScreen() {
 const styles = StyleSheet.create({
   metrics: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: spacing.md,
   },
   actions: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: spacing.md,
   },
   action: {
     flex: 1,
+    minWidth: 148,
   },
   cards: {
     gap: spacing.md,

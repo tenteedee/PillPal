@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -10,9 +10,9 @@ import {
   TextInput,
   TouchableOpacity,
   View,
-} from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { Picker } from '@react-native-picker/picker';
+} from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { Picker } from "@react-native-picker/picker";
 
 import {
   AccentCard,
@@ -21,10 +21,10 @@ import {
   GlassCard,
   MetricTile,
   SectionTitle,
-} from '@/src/components/PillPalUI';
-import { PillPalScreen } from '@/src/components/PillPalScreen';
-import { palette, radius, spacing, typography } from '@/src/theme/pillpal';
-import { apiFetch } from '@/src/api/client';
+} from "@/src/components/PillPalUI";
+import { PillPalScreen } from "@/src/components/PillPalScreen";
+import { palette, radius, spacing, typography } from "@/src/theme/pillpal";
+import { apiFetch } from "@/src/api/client";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -57,7 +57,7 @@ interface DailyPlanItem {
   name: string;
   doseAmount: string;
   instruction: string;
-  status: 'due' | 'taken' | 'skipped';
+  status: "due" | "taken" | "skipped";
 }
 
 interface DailyPlanGroup {
@@ -85,27 +85,27 @@ export default function ScheduleScreen() {
   const [modalOpen, setModalOpen] = useState(false);
   const [medications, setMedications] = useState<UserMedication[]>([]);
   const [form, setForm] = useState({
-    userMedicationId: '',
-    doseAmount: '',
-    times: '',
-    timesPerDay: '1',
-    minIntervalHours: '',
-    instruction: '',
+    userMedicationId: "",
+    doseAmount: "",
+    times: "",
+    timesPerDay: "1",
+    minIntervalHours: "",
+    instruction: "",
   });
   const [submitting, setSubmitting] = useState(false);
 
   // Which tab is active: 'schedules' | 'today'
-  const [activeTab, setActiveTab] = useState<'schedules' | 'today'>('today');
+  const [activeTab, setActiveTab] = useState<"schedules" | "today">("today");
 
   // ---------- API Calls ----------
 
   const loadSchedules = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await apiFetch<Schedule[]>('/schedules');
+      const data = await apiFetch<Schedule[]>("/schedules");
       setSchedules(data || []);
     } catch (e) {
-      console.error('Failed to fetch schedules', e);
+      console.error("Failed to fetch schedules", e);
     } finally {
       setLoading(false);
     }
@@ -113,20 +113,20 @@ export default function ScheduleScreen() {
 
   const loadUserMeds = useCallback(async () => {
     try {
-      const data = await apiFetch<UserMedication[]>('/medications');
+      const data = await apiFetch<UserMedication[]>("/medications");
       setMedications(data || []);
     } catch (e) {
-      console.error('Failed to load user medications', e);
+      console.error("Failed to load user medications", e);
     }
   }, []);
 
   const loadDailyPlan = useCallback(async () => {
     setPlanLoading(true);
     try {
-      const res = await apiFetch<DailyPlan>('/daily-plan/today');
+      const res = await apiFetch<DailyPlan>("/daily-plan/today");
       setDailyPlan(res ?? null);
     } catch (e) {
-      console.error('Failed to load daily plan', e);
+      console.error("Failed to load daily plan", e);
     } finally {
       setPlanLoading(false);
     }
@@ -142,7 +142,7 @@ export default function ScheduleScreen() {
 
   const handleCreate = async () => {
     const timesArray = form.times
-      .split(',')
+      .split(",")
       .map((t) => t.trim())
       .filter(Boolean);
     const payload = {
@@ -150,39 +150,48 @@ export default function ScheduleScreen() {
       doseAmount: form.doseAmount,
       times: timesArray,
       timesPerDay: Number(form.timesPerDay),
-      minIntervalHours: form.minIntervalHours ? Number(form.minIntervalHours) : undefined,
+      minIntervalHours: form.minIntervalHours
+        ? Number(form.minIntervalHours)
+        : undefined,
       instruction: form.instruction || undefined,
     };
     setSubmitting(true);
     try {
-      await apiFetch<Schedule>('/schedules', {
-        method: 'POST',
+      await apiFetch<Schedule>("/schedules", {
+        method: "POST",
         body: JSON.stringify(payload),
       });
       setModalOpen(false);
-      setForm({ userMedicationId: '', doseAmount: '', times: '', timesPerDay: '1', minIntervalHours: '', instruction: '' });
+      setForm({
+        userMedicationId: "",
+        doseAmount: "",
+        times: "",
+        timesPerDay: "1",
+        minIntervalHours: "",
+        instruction: "",
+      });
       await Promise.all([loadSchedules(), loadDailyPlan()]);
     } catch (e) {
-      console.error('Create schedule error', e);
-      Alert.alert('Lỗi', 'Không thể tạo lịch uống. Vui lòng thử lại.');
+      console.error("Create schedule error", e);
+      Alert.alert("Lỗi", "Không thể tạo lịch uống. Vui lòng thử lại.");
     } finally {
       setSubmitting(false);
     }
   };
 
   const handleDelete = (id: string) => {
-    Alert.alert('Xác nhận xóa', 'Bạn có chắc chắn muốn xóa lịch uống này?', [
-      { text: 'Hủy', style: 'cancel' },
+    Alert.alert("Xác nhận xóa", "Bạn có chắc chắn muốn xóa lịch uống này?", [
+      { text: "Hủy", style: "cancel" },
       {
-        text: 'Xóa',
-        style: 'destructive',
+        text: "Xóa",
+        style: "destructive",
         onPress: async () => {
           try {
-            await apiFetch(`/schedules/${id}`, { method: 'DELETE' });
+            await apiFetch(`/schedules/${id}`, { method: "DELETE" });
             await Promise.all([loadSchedules(), loadDailyPlan()]);
           } catch (e) {
-            console.error('Delete schedule error', e);
-            Alert.alert('Lỗi', 'Không thể xóa lịch uống.');
+            console.error("Delete schedule error", e);
+            Alert.alert("Lỗi", "Không thể xóa lịch uống.");
           }
         },
       },
@@ -191,11 +200,11 @@ export default function ScheduleScreen() {
 
   const handleTogglePause = async (item: Schedule) => {
     try {
-      await apiFetch(`/schedules/${item.id}/pause`, { method: 'PUT' });
+      await apiFetch(`/schedules/${item.id}/pause`, { method: "PUT" });
       await Promise.all([loadSchedules(), loadDailyPlan()]);
     } catch (e) {
-      console.error('Pause/resume error', e);
-      Alert.alert('Lỗi', 'Không thể tạm dừng / tiếp tục lịch uống.');
+      console.error("Pause/resume error", e);
+      Alert.alert("Lỗi", "Không thể tạm dừng / tiếp tục lịch uống.");
     }
   };
 
@@ -203,7 +212,7 @@ export default function ScheduleScreen() {
 
   const getMedName = (medId: string): string => {
     const med = medications.find((m) => m.id === medId);
-    return med ? med.name : 'Thuốc không xác định';
+    return med ? med.name : "Thuốc không xác định";
   };
 
   const activeCount = schedules.filter((s) => s.isActive !== false).length;
@@ -217,28 +226,41 @@ export default function ScheduleScreen() {
       <GlassCard style={[styles.card, !isActive && styles.cardPaused]}>
         <View style={styles.cardHeader}>
           <View style={styles.cardInfo}>
-            <Text style={styles.cardMedName}>{getMedName(item.userMedicationId)}</Text>
+            <Text style={styles.cardMedName}>
+              {getMedName(item.userMedicationId)}
+            </Text>
             <Text style={styles.cardDose}>{item.doseAmount}</Text>
           </View>
-          <View style={[styles.statusBadge, isActive ? styles.badgeActive : styles.badgePaused]}>
-            <Text style={styles.statusText}>{isActive ? 'Đang bật' : 'Tạm dừng'}</Text>
+          <View
+            style={[
+              styles.statusBadge,
+              isActive ? styles.badgeActive : styles.badgePaused,
+            ]}
+          >
+            <Text style={styles.statusText}>
+              {isActive ? "Đang bật" : "Tạm dừng"}
+            </Text>
           </View>
         </View>
 
         <View style={styles.cardBody}>
           <View style={styles.timeRow}>
             <Ionicons name="time-outline" size={14} color={palette.muted} />
-            <Text style={styles.cardMeta}> {item.times.join(', ')}</Text>
+            <Text style={styles.cardMeta}> {item.times.join(", ")}</Text>
           </View>
           {item.instruction ? (
             <View style={styles.timeRow}>
-              <Ionicons name="document-text-outline" size={14} color={palette.muted} />
+              <Ionicons
+                name="document-text-outline"
+                size={14}
+                color={palette.muted}
+              />
               <Text style={styles.cardMeta}> {item.instruction}</Text>
             </View>
           ) : null}
           <Text style={styles.cardMeta}>
             {item.timesPerDay} lần/ngày
-            {item.minIntervalHours ? ` · cách ${item.minIntervalHours}h` : ''}
+            {item.minIntervalHours ? ` · cách ${item.minIntervalHours}h` : ""}
           </Text>
         </View>
 
@@ -248,15 +270,21 @@ export default function ScheduleScreen() {
             style={[styles.actionBtn, styles.pauseBtn]}
             onPress={() => handleTogglePause(item)}
           >
-            <Ionicons name={isActive ? 'pause-circle-outline' : 'play-circle-outline'} size={18} color={palette.primary} />
-            <Text style={styles.actionLabel}>{isActive ? 'Tạm dừng' : 'Tiếp tục'}</Text>
+            <Ionicons
+              name={isActive ? "pause-circle-outline" : "play-circle-outline"}
+              size={18}
+              color={palette.primary}
+            />
+            <Text style={styles.actionLabel}>
+              {isActive ? "Tạm dừng" : "Tiếp tục"}
+            </Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.actionBtn, styles.deleteBtn]}
             onPress={() => handleDelete(item.id)}
           >
             <Ionicons name="trash-outline" size={18} color="#e74c3c" />
-            <Text style={[styles.actionLabel, { color: '#e74c3c' }]}>Xóa</Text>
+            <Text style={[styles.actionLabel, { color: "#e74c3c" }]}>Xóa</Text>
           </TouchableOpacity>
         </View>
       </GlassCard>
@@ -267,7 +295,13 @@ export default function ScheduleScreen() {
 
   const renderTodayPlan = () => {
     if (planLoading) {
-      return <ActivityIndicator size="large" color={palette.primary} style={styles.loader} />;
+      return (
+        <ActivityIndicator
+          size="large"
+          color={palette.primary}
+          style={styles.loader}
+        />
+      );
     }
 
     if (!dailyPlan || !dailyPlan.groups || dailyPlan.groups.length === 0) {
@@ -292,9 +326,17 @@ export default function ScheduleScreen() {
             {/* Items */}
             {group.items.map((item, ii) => {
               const statusColor =
-                item.status === 'taken' ? '#27ae60' : item.status === 'skipped' ? '#e67e22' : palette.primary;
+                item.status === "taken"
+                  ? "#27ae60"
+                  : item.status === "skipped"
+                    ? "#e67e22"
+                    : palette.primary;
               const statusLabel =
-                item.status === 'taken' ? 'Đã uống' : item.status === 'skipped' ? 'Bỏ qua' : 'Chưa uống';
+                item.status === "taken"
+                  ? "Đã uống"
+                  : item.status === "skipped"
+                    ? "Bỏ qua"
+                    : "Chưa uống";
               return (
                 <GlassCard key={`i-${gi}-${ii}`} style={styles.planCard}>
                   <View style={styles.planCardRow}>
@@ -302,16 +344,33 @@ export default function ScheduleScreen() {
                       <Text style={styles.planMedName}>{item.name}</Text>
                       <Text style={styles.planDose}>{item.doseAmount}</Text>
                       {item.instruction ? (
-                        <Text style={styles.planInstruction}>{item.instruction}</Text>
+                        <Text style={styles.planInstruction}>
+                          {item.instruction}
+                        </Text>
                       ) : null}
                     </View>
-                    <View style={[styles.planStatusBadge, { backgroundColor: statusColor + '20' }]}>
+                    <View
+                      style={[
+                        styles.planStatusBadge,
+                        { backgroundColor: statusColor + "20" },
+                      ]}
+                    >
                       <Ionicons
-                        name={item.status === 'taken' ? 'checkmark-circle' : item.status === 'skipped' ? 'close-circle' : 'ellipse-outline'}
+                        name={
+                          item.status === "taken"
+                            ? "checkmark-circle"
+                            : item.status === "skipped"
+                              ? "close-circle"
+                              : "ellipse-outline"
+                        }
                         size={16}
                         color={statusColor}
                       />
-                      <Text style={[styles.planStatusText, { color: statusColor }]}>{statusLabel}</Text>
+                      <Text
+                        style={[styles.planStatusText, { color: statusColor }]}
+                      >
+                        {statusLabel}
+                      </Text>
                     </View>
                   </View>
                 </GlassCard>
@@ -332,9 +391,21 @@ export default function ScheduleScreen() {
     >
       {/* Metrics */}
       <View style={styles.metrics}>
-        <MetricTile value={activeCount.toString()} label="Đang bật" tone="primary" />
-        <MetricTile value={schedules.length.toString()} label="Tổng lịch" tone="blue" />
-        <MetricTile value={pausedCount.toString()} label="Tạm dừng" tone="amber" />
+        <MetricTile
+          value={activeCount.toString()}
+          label="Đang bật"
+          tone="primary"
+        />
+        <MetricTile
+          value={schedules.length.toString()}
+          label="Tổng lịch"
+          tone="blue"
+        />
+        <MetricTile
+          value={pausedCount.toString()}
+          label="Tạm dừng"
+          tone="amber"
+        />
       </View>
 
       {/* Quick actions */}
@@ -350,32 +421,66 @@ export default function ScheduleScreen() {
       {/* Tab switcher */}
       <View style={styles.tabRow}>
         <TouchableOpacity
-          style={[styles.tab, activeTab === 'today' && styles.tabActive]}
-          onPress={() => setActiveTab('today')}
+          style={[styles.tab, activeTab === "today" && styles.tabActive]}
+          onPress={() => setActiveTab("today")}
         >
-          <Ionicons name="today" size={16} color={activeTab === 'today' ? '#fff' : palette.muted} />
-          <Text style={[styles.tabLabel, activeTab === 'today' && styles.tabLabelActive]}>Hôm nay</Text>
+          <Ionicons
+            name="today"
+            size={16}
+            color={activeTab === "today" ? "#fff" : palette.muted}
+          />
+          <Text
+            style={[
+              styles.tabLabel,
+              activeTab === "today" && styles.tabLabelActive,
+            ]}
+          >
+            Hôm nay
+          </Text>
         </TouchableOpacity>
         <TouchableOpacity
-          style={[styles.tab, activeTab === 'schedules' && styles.tabActive]}
-          onPress={() => setActiveTab('schedules')}
+          style={[styles.tab, activeTab === "schedules" && styles.tabActive]}
+          onPress={() => setActiveTab("schedules")}
         >
-          <Ionicons name="list" size={16} color={activeTab === 'schedules' ? '#fff' : palette.muted} />
-          <Text style={[styles.tabLabel, activeTab === 'schedules' && styles.tabLabelActive]}>Tất cả lịch</Text>
+          <Ionicons
+            name="list"
+            size={16}
+            color={activeTab === "schedules" ? "#fff" : palette.muted}
+          />
+          <Text
+            style={[
+              styles.tabLabel,
+              activeTab === "schedules" && styles.tabLabelActive,
+            ]}
+          >
+            Tất cả lịch
+          </Text>
         </TouchableOpacity>
       </View>
 
       {/* Content */}
-      {activeTab === 'today' ? (
+      {activeTab === "today" ? (
         <>
-          <SectionTitle title={`Kế hoạch ${dailyPlan?.date || 'hôm nay'}`} action="Làm mới" onAction={loadDailyPlan} />
+          <SectionTitle
+            title={`Kế hoạch ${dailyPlan?.date || "hôm nay"}`}
+            action="Làm mới"
+            onAction={loadDailyPlan}
+          />
           {renderTodayPlan()}
         </>
       ) : (
         <>
-          <SectionTitle title="Danh sách lịch uống" action="Làm mới" onAction={loadSchedules} />
+          <SectionTitle
+            title="Danh sách lịch uống"
+            action="Làm mới"
+            onAction={loadSchedules}
+          />
           {loading ? (
-            <ActivityIndicator size="large" color={palette.primary} style={styles.loader} />
+            <ActivityIndicator
+              size="large"
+              color={palette.primary}
+              style={styles.loader}
+            />
           ) : schedules.length === 0 ? (
             <EmptyState
               icon="calendar-clear"
@@ -397,7 +502,12 @@ export default function ScheduleScreen() {
       )}
 
       {/* ─── Create Schedule Modal ──────────────────────────────────────── */}
-      <Modal animationType="slide" transparent visible={modalOpen} onRequestClose={() => setModalOpen(false)}>
+      <Modal
+        animationType="slide"
+        transparent
+        visible={modalOpen}
+        onRequestClose={() => setModalOpen(false)}
+      >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
@@ -407,20 +517,25 @@ export default function ScheduleScreen() {
               </TouchableOpacity>
             </View>
 
-            <ScrollView style={styles.modalScroll} showsVerticalScrollIndicator={false}>
+            <ScrollView
+              style={styles.modalScroll}
+              showsVerticalScrollIndicator={false}
+            >
               {/* Medication picker */}
               <Text style={styles.fieldLabel}>Thuốc</Text>
               <View style={styles.pickerWrap}>
                 <Picker
                   selectedValue={form.userMedicationId}
-                  onValueChange={(v) => setForm({ ...form, userMedicationId: v })}
+                  onValueChange={(v) =>
+                    setForm({ ...form, userMedicationId: v })
+                  }
                   style={styles.picker}
                 >
                   <Picker.Item label="-- Chọn thuốc --" value="" />
                   {medications.map((med) => (
                     <Picker.Item
                       key={med.id}
-                      label={`${med.name}${med.strength ? ' (' + med.strength + ')' : ''}`}
+                      label={`${med.name}${med.strength ? " (" + med.strength + ")" : ""}`}
                       value={med.id}
                     />
                   ))}
@@ -436,7 +551,9 @@ export default function ScheduleScreen() {
                 onChangeText={(v) => setForm({ ...form, doseAmount: v })}
               />
 
-              <Text style={styles.fieldLabel}>Thời gian uống (cách nhau bởi dấu phẩy)</Text>
+              <Text style={styles.fieldLabel}>
+                Thời gian uống (cách nhau bởi dấu phẩy)
+              </Text>
               <TextInput
                 style={styles.input}
                 placeholder="VD: 08:00, 20:00"
@@ -487,7 +604,11 @@ export default function ScheduleScreen() {
                 <Text style={styles.secondaryBtnText}>Hủy</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.modalBtn, styles.primaryBtn, submitting && styles.disabledBtn]}
+                style={[
+                  styles.modalBtn,
+                  styles.primaryBtn,
+                  submitting && styles.disabledBtn,
+                ]}
                 onPress={handleCreate}
                 disabled={submitting || !form.userMedicationId}
               >
@@ -509,13 +630,13 @@ export default function ScheduleScreen() {
 
 const styles = StyleSheet.create({
   /* Metrics & quick actions */
-  metrics: { flexDirection: 'row', gap: spacing.md },
-  quickPanel: { flexDirection: 'row', gap: spacing.md, marginTop: spacing.md },
+  metrics: { flexDirection: "row", gap: spacing.md },
+  quickPanel: { flexDirection: "row", gap: spacing.md, marginTop: spacing.md },
   primaryAction: { flex: 1 },
 
   /* Tab switcher */
   tabRow: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: spacing.sm,
     marginTop: spacing.lg,
     marginBottom: spacing.sm,
@@ -525,9 +646,9 @@ const styles = StyleSheet.create({
   },
   tab: {
     flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     gap: 6,
     paddingVertical: 10,
     borderRadius: radius.sm,
@@ -538,10 +659,10 @@ const styles = StyleSheet.create({
   tabLabel: {
     ...typography.small,
     color: palette.muted,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   tabLabelActive: {
-    color: '#fff',
+    color: "#fff",
   },
 
   /* Loader & list */
@@ -562,21 +683,21 @@ const styles = StyleSheet.create({
     borderLeftColor: palette.muted,
   },
   cardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
     marginBottom: 8,
   },
   cardInfo: { flex: 1 },
   cardMedName: {
     ...typography.body,
-    fontWeight: '800',
+    fontWeight: "800",
     color: palette.ink,
   },
   cardDose: {
     ...typography.small,
     color: palette.primary,
-    fontWeight: '600',
+    fontWeight: "600",
     marginTop: 2,
   },
   statusBadge: {
@@ -584,42 +705,42 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
     borderRadius: 12,
   },
-  badgeActive: { backgroundColor: '#27ae6020' },
-  badgePaused: { backgroundColor: '#e67e2220' },
-  statusText: { fontSize: 11, fontWeight: '700', color: palette.ink },
+  badgeActive: { backgroundColor: "#27ae6020" },
+  badgePaused: { backgroundColor: "#e67e2220" },
+  statusText: { fontSize: 11, fontWeight: "700", color: palette.ink },
 
   cardBody: { marginBottom: 8 },
-  timeRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 2 },
+  timeRow: { flexDirection: "row", alignItems: "center", marginBottom: 2 },
   cardMeta: { ...typography.small, color: palette.muted },
 
   cardActions: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: spacing.sm,
     borderTopWidth: 1,
-    borderTopColor: palette.mutedLight ?? '#eee',
+    borderTopColor: palette.mutedLight ?? "#eee",
     paddingTop: 8,
   },
   actionBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 4,
     paddingVertical: 4,
     paddingHorizontal: 8,
     borderRadius: radius.sm,
   },
-  pauseBtn: { backgroundColor: palette.primary + '12' },
-  deleteBtn: { backgroundColor: '#e74c3c12' },
+  pauseBtn: { backgroundColor: palette.primary + "12" },
+  deleteBtn: { backgroundColor: "#e74c3c12" },
   actionLabel: {
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: "600",
     color: palette.primary,
   },
 
   /* ─── Today plan ──────────────────────────────────────────────── */
   planGroup: { marginBottom: spacing.md },
   planTimeHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 8,
     marginBottom: 6,
   },
@@ -631,7 +752,7 @@ const styles = StyleSheet.create({
   },
   planTime: {
     ...typography.body,
-    fontWeight: '900',
+    fontWeight: "900",
     color: palette.ink,
   },
   planCard: {
@@ -641,73 +762,73 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     backgroundColor: palette.canvas,
     borderLeftWidth: 3,
-    borderLeftColor: palette.primary + '60',
+    borderLeftColor: palette.primary + "60",
   },
   planCardRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
   },
   planCardInfo: { flex: 1 },
-  planMedName: { ...typography.body, fontWeight: '700', color: palette.ink },
-  planDose: { ...typography.small, color: palette.primary, fontWeight: '600' },
+  planMedName: { ...typography.body, fontWeight: "700", color: palette.ink },
+  planDose: { ...typography.small, color: palette.primary, fontWeight: "600" },
   planInstruction: { ...typography.small, color: palette.muted, marginTop: 2 },
   planStatusBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 4,
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 12,
   },
-  planStatusText: { fontSize: 11, fontWeight: '700' },
+  planStatusText: { fontSize: 11, fontWeight: "700" },
 
   /* ─── Modal ───────────────────────────────────────────────────── */
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.45)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "rgba(0,0,0,0.45)",
+    justifyContent: "center",
+    alignItems: "center",
   },
   modalContent: {
-    width: '92%',
-    maxHeight: '85%',
-    backgroundColor: '#fff',
+    width: "92%",
+    maxHeight: "85%",
+    backgroundColor: "#fff",
     borderRadius: radius.lg,
     padding: spacing.lg,
   },
   modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginBottom: spacing.md,
   },
   modalTitle: {
     fontSize: 20,
-    fontWeight: '900',
+    fontWeight: "900",
     color: palette.ink,
   },
   modalScroll: { marginBottom: spacing.md },
   fieldLabel: {
     ...typography.small,
-    fontWeight: '700',
+    fontWeight: "700",
     color: palette.ink,
     marginBottom: 4,
     marginTop: 8,
   },
   pickerWrap: {
     borderWidth: 1,
-    borderColor: palette.mutedLight ?? '#ddd',
+    borderColor: palette.mutedLight ?? "#ddd",
     borderRadius: radius.sm,
     marginBottom: spacing.sm,
-    overflow: 'hidden',
+    overflow: "hidden",
   },
   picker: {
     height: 50,
   },
   input: {
     borderWidth: 1,
-    borderColor: palette.mutedLight ?? '#ddd',
+    borderColor: palette.mutedLight ?? "#ddd",
     borderRadius: radius.sm,
     padding: spacing.sm,
     marginBottom: spacing.sm,
@@ -715,23 +836,23 @@ const styles = StyleSheet.create({
     fontSize: 15,
   },
   inputMultiline: {
-    textAlignVertical: 'top',
+    textAlignVertical: "top",
     minHeight: 70,
   },
   modalButtons: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: spacing.sm,
   },
   modalBtn: {
     flex: 1,
     height: 48,
     borderRadius: radius.md,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   primaryBtn: { backgroundColor: palette.primary },
   secondaryBtn: { backgroundColor: palette.canvasStrong },
   disabledBtn: { opacity: 0.5 },
-  primaryBtnText: { color: '#fff', fontWeight: '700', fontSize: 15 },
-  secondaryBtnText: { color: palette.ink, fontWeight: '700', fontSize: 15 },
+  primaryBtnText: { color: "#fff", fontWeight: "700", fontSize: 15 },
+  secondaryBtnText: { color: palette.ink, fontWeight: "700", fontSize: 15 },
 });
