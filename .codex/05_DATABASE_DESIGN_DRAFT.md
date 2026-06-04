@@ -56,8 +56,7 @@ create table if not exists public.profiles (
   conditions jsonb not null default '[]'::jsonb,
   allergies jsonb not null default '[]'::jsonb,
   doctor_note text,
-  caregiver_name text,
-  caregiver_phone text,
+  contact_phone_number text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );

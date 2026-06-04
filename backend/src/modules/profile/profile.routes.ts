@@ -76,8 +76,7 @@ profileRouter.get("/me", profileController.getMe);
  *                     name: { type: string }
  *                     label: { type: string }
  *               doctorNote: { type: string }
- *               caregiverName: { type: string }
- *               caregiverPhone: { type: string }
+ *               contactPhoneNumber: { type: string }
  *     responses:
  *       201:
  *         description: Created
@@ -143,8 +142,7 @@ profileRouter.post(
  *                     name: { type: string }
  *                     label: { type: string }
  *               doctorNote: { type: string }
- *               caregiverName: { type: string }
- *               caregiverPhone: { type: string }
+ *               contactPhoneNumber: { type: string }
  *     responses:
  *       200:
  *         description: OK

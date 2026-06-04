@@ -7,8 +7,7 @@ export type ProfileRow = {
   conditions: unknown[];
   allergies: unknown[];
   doctor_note: string | null;
-  caregiver_name: string | null;
-  caregiver_phone: string | null;
+  contact_phone_number: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -22,8 +21,7 @@ export type ProfileDto = {
   conditions: unknown[];
   allergies: unknown[];
   doctorNote: string | null;
-  caregiverName: string | null;
-  caregiverPhone: string | null;
+  contactPhoneNumber: string | null;
   createdAt: string;
   updatedAt: string;
 };

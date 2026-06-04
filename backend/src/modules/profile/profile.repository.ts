@@ -27,6 +27,26 @@ export class ProfileRepository {
     return data;
   }
 
+  async findById(profileId: string): Promise<ProfileRow | null> {
+    const supabase = getSupabaseClient();
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("*")
+      .eq("id", profileId)
+      .maybeSingle<ProfileRow>();
+
+    if (error) {
+      throw new HttpError(
+        HTTP_STATUS.INTERNAL_SERVER_ERROR,
+        ERROR_CODE.PROFILE_READ_FAILED,
+        `Failed to load profile ${profileId}`,
+        error,
+      );
+    }
+
+    return data;
+  }
+
   async create(
     userId: string,
     payload: CreateProfileBody,
@@ -42,8 +62,7 @@ export class ProfileRepository {
         conditions: payload.conditions,
         allergies: payload.allergies,
         doctor_note: payload.doctorNote ?? null,
-        caregiver_name: payload.caregiverName ?? null,
-        caregiver_phone: payload.caregiverPhone ?? null,
+        contact_phone_number: payload.contactPhoneNumber ?? null,
       })
       .select("*")
       .single<ProfileRow>();
@@ -79,10 +98,8 @@ export class ProfileRepository {
       updateData.allergies = payload.allergies;
     if (payload.doctorNote !== undefined)
       updateData.doctor_note = payload.doctorNote;
-    if (payload.caregiverName !== undefined)
-      updateData.caregiver_name = payload.caregiverName;
-    if (payload.caregiverPhone !== undefined)
-      updateData.caregiver_phone = payload.caregiverPhone;
+    if (payload.contactPhoneNumber !== undefined)
+      updateData.contact_phone_number = payload.contactPhoneNumber;
 
     const { data, error } = await supabase
       .from("profiles")

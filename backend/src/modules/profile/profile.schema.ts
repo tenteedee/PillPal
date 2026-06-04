@@ -25,8 +25,7 @@ export const createProfileBodySchema = z.object({
   conditions: z.array(conditionSchema).default([]),
   allergies: z.array(allergySchema).default([]),
   doctorNote: z.string().max(1000).optional(),
-  caregiverName: z.string().max(255).optional(),
-  caregiverPhone: z.string().max(50).optional(),
+  contactPhoneNumber: z.string().max(50).optional(),
 });
 
 export const updateProfileBodySchema = createProfileBodySchema.partial();

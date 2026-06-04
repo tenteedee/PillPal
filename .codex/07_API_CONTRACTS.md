@@ -65,14 +65,80 @@ Request:
     { "type": "ingredient", "name": "paracetamol", "label": "Paracetamol" }
   ],
   "doctorNote": "Uống sau ăn nếu có ghi chú.",
-  "caregiverName": "Nguyen Van B",
-  "caregiverPhone": "0900000000"
+  "contactPhoneNumber": "0900000000"
 }
 ```
 
 ## PATCH `/profiles/me`
 
 Update current user's profile.
+
+---
+
+# Caregivers
+
+## GET `/caregivers`
+
+List caregiver links for the current patient profile.
+
+## POST `/caregivers/invite`
+
+Invite an existing caregiver profile to watch the current patient profile.
+
+Request:
+
+```json
+{
+  "caregiverProfileId": "uuid",
+  "relationship": "Daughter",
+  "permissions": {
+    "notifySafetyWarnings": true,
+    "notifyBlockedAttempts": true,
+    "notifyMissedDose": true,
+    "viewMedicationList": false,
+    "viewIntakeHistory": false
+  }
+}
+```
+
+## PUT `/caregivers/:id/accept`
+
+Accept a pending caregiver invitation. The current user must be the invited caregiver.
+
+## GET `/caregivers/invitations`
+
+List pending invitations for the current caregiver profile.
+
+Response items include:
+
+```json
+{
+  "id": "caregiver-link-id",
+  "patientProfileId": "patient-profile-id",
+  "caregiverProfileId": "caregiver-profile-id",
+  "relationship": "Daughter",
+  "status": "pending",
+  "permissions": {
+    "notifySafetyWarnings": true,
+    "notifyBlockedAttempts": true,
+    "notifyMissedDose": true,
+    "viewMedicationList": false,
+    "viewIntakeHistory": false
+  },
+  "patient": {
+    "id": "patient-profile-id",
+    "fullName": "Nguyen Van A"
+  }
+}
+```
+
+## GET `/caregivers/patients`
+
+List accepted patient links for the current caregiver profile.
+
+## DELETE `/caregivers/:id`
+
+Revoke a pending or accepted caregiver-patient link. The current user must be either the patient or caregiver on the link.
 
 ---
 

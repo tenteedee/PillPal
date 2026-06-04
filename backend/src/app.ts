@@ -9,6 +9,7 @@ import { errorMiddleware } from "./shared/middlewares/error.middleware.js";
 import { sendSuccess } from "./shared/utils/response.js";
 import { aiRouter } from "./modules/ai/ai.routes.js";
 import { authRouter } from "./modules/auth/auth.routes.js";
+import { caregiverRouter } from "./modules/caregiver/caregiver.routes.js";
 import { dailyPlanRouter } from "./modules/daily-plan/daily-plan.routes.js";
 import { intakeRouter } from "./modules/intake/intake.routes.js";
 import { medicationRouter } from "./modules/medication/medication.routes.js";
@@ -48,6 +49,7 @@ setupSwagger(app);
 
 app.use("/api/v1/profiles", profileRouter);
 app.use("/api/v1/auth", authRouter);
+app.use("/api/v1/caregivers", caregiverRouter);
 app.use("/api/v1/medications", medicationRouter);
 app.use("/api/v1/medication-catalogs", medicationCatalogRouter);
 app.use("/api/v1/schedules", scheduleRouter);

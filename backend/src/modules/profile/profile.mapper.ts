@@ -10,8 +10,7 @@ export function mapProfileRowToDto(row: ProfileRow): ProfileDto {
     conditions: row.conditions,
     allergies: row.allergies,
     doctorNote: row.doctor_note,
-    caregiverName: row.caregiver_name,
-    caregiverPhone: row.caregiver_phone,
+    contactPhoneNumber: row.contact_phone_number,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
