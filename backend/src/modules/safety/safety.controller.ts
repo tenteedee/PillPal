@@ -4,6 +4,7 @@ import { sendSuccess } from "../../shared/utils/response.js";
 import { CaregiverRepository } from "../caregiver/caregiver.repository.js";
 import { IntakeRepository } from "../intake/intake.repository.js";
 import { MedicationRepository } from "../medication/medication.repository.js";
+import { MedicineLookupRepository } from "../medicine-lookup/medicine-lookup.repository.js";
 import { ProfileRepository } from "../profile/profile.repository.js";
 import { ScheduleRepository } from "../schedule/schedule.repository.js";
 import { SafetyRepository } from "./safety.repository.js";
@@ -13,6 +14,7 @@ const safetyService = new SafetyService(
   new SafetyRepository(),
   new ProfileRepository(),
   new MedicationRepository(),
+  new MedicineLookupRepository(),
   new ScheduleRepository(),
   new IntakeRepository(),
   new CaregiverRepository(),

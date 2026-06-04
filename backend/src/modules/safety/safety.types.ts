@@ -35,6 +35,7 @@ export type SafetyRuleInput = {
   medication: UserMedicationRow;
   selectedSchedule: MedicationScheduleRow | null;
   activeMedicationSchedules: MedicationScheduleRow[];
+  hasVerifiedExternalLookup: boolean;
   scheduledTime: string | null;
   todayTakenCount: number;
   lastTakenAt: string | null;

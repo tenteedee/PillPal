@@ -47,6 +47,37 @@ The orchestrator receives the scan output, dispatches specialized workers, merge
 
 Workers must return structured output so the data can be stored, reused, reviewed by admins, and fed into deterministic safety checks.
 
+Workers use the OpenAI SDK to interpret fetched source content into structured evidence. Each concrete worker agent owns its own prompt and task rules:
+
+```txt
+OpenAIMedicineLookupAgent -> OpenAI SDK runner used by concrete workers
+DistributorLookupAgent -> distributor/pharmacy product identity evidence
+GeneralWebLookupAgent -> reputable broader web medicine identity evidence
+AdministrationComparisonAgent -> Vietnam administration authorization comparison
+MedicineLookupSupervisorAgent -> stage-level evaluation and next-step decision
+```
+
+If OpenAI is not configured or a worker's model call fails, the backend falls back to deterministic text matching and marks the stored worker output with `analysisSource = "fallback"`.
+
+The workflow is sequential by mission stage, but workers inside the same stage may run in parallel.
+
+Stage order:
+
+```txt
+receive data
+-> distributor worker group
+-> supervisor evaluation
+-> general web worker group
+-> supervisor evaluation
+-> administration comparison worker group
+-> supervisor evaluation
+-> output
+```
+
+The orchestrator must not hard-code worker counts. It must load active rows from `medicine_data_sources` by `source_type`, then dispatch workers according to each row's `required_worker_count`.
+
+The supervisor may evaluate a stage only after every worker dispatched for that stage has returned structured output, failed with a structured error, or timed out with a structured timeout result.
+
 ## Step 1 — Scan Agent
 
 The scan agent extracts visible package information.
@@ -86,7 +117,9 @@ https://www.pharmacity.vn/
 https://www.nhathuocankhang.com/
 ```
 
-The orchestrator must dispatch at least 1 distributor workers for each distributor site. Each worker should operate independently and return structured evidence.
+The orchestrator must load active `distributor` sources from `medicine_data_sources`. For each distributor source, dispatch the number of workers defined by that source's `required_worker_count`.
+
+Workers in the distributor stage may run in parallel. The supervisor can evaluate distributor results only after all distributor workers have returned structured outputs.
 
 These workers search by:
 
@@ -105,7 +138,9 @@ The worker still must store source metadata, matched fields, timestamp, and conf
 
 Use broader web search only when distributor workers cannot find enough evidence, especially for foreign medicines.
 
-The orchestrator must dispatch at least 3 general web workers. Each worker should search independently and only return evidence from reputable sources.
+The orchestrator must load active `general_web` sources from `medicine_data_sources`. For each general web source, dispatch the number of workers defined by that source's `required_worker_count`.
+
+Workers in the general web stage may run in parallel. The supervisor can evaluate general web results only after all general web workers have returned structured outputs.
 
 Search inputs may include:
 
@@ -139,7 +174,9 @@ https://dichvucong.dav.gov.vn/congbothuoc
 
 This worker is required when the pill is found through general web evidence instead of trusted distributor evidence.
 
-This can be handled by 1 administration comparison worker.
+The orchestrator must load active `administration` sources from `medicine_data_sources`. For each administration source, dispatch the number of workers defined by that source's `required_worker_count`.
+
+The supervisor can evaluate administration results only after all administration workers have returned structured outputs.
 
 The worker searches by:
 
@@ -280,9 +317,9 @@ general_web
 Worker-count rules:
 
 ```txt
-distributor: at least 3 workers
-general_web: at least 3 workers
-administration: 1 comparison worker
+Do not hard-code stage worker counts.
+For each active source, dispatch source.required_worker_count workers.
+Supervisor evaluation waits for all workers in the current stage.
 ```
 
 ### `medicine_lookup_attempts`

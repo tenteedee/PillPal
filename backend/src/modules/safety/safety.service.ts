@@ -7,6 +7,7 @@ import { CaregiverRepository } from "../caregiver/caregiver.repository.js";
 import { DeviceRepository } from "../device/device.repository.js";
 import { IntakeRepository } from "../intake/intake.repository.js";
 import { MedicationRepository } from "../medication/medication.repository.js";
+import { MedicineLookupRepository } from "../medicine-lookup/medicine-lookup.repository.js";
 import { ExpoPushService } from "../notification/expo-push.service.js";
 import { NotificationRepository } from "../notification/notification.repository.js";
 import { NotificationService } from "../notification/notification.service.js";
@@ -30,6 +31,7 @@ export class SafetyService {
     private readonly safetyRepository: SafetyRepository,
     private readonly profileRepository: ProfileRepository,
     private readonly medicationRepository: MedicationRepository,
+    private readonly medicineLookupRepository: MedicineLookupRepository,
     private readonly scheduleRepository: ScheduleRepository,
     private readonly intakeRepository: IntakeRepository,
     private readonly caregiverRepository: CaregiverRepository,
@@ -63,8 +65,13 @@ export class SafetyService {
     const now = new Date();
     const range = getLocalDayUtcRange(now, env.APP_TIMEZONE);
     const scheduleId = payload.scheduleId ?? null;
-    const [selectedSchedule, activeMedicationSchedules, todayIntakes, lastIntake] =
-      await Promise.all([
+    const [
+      selectedSchedule,
+      activeMedicationSchedules,
+      todayIntakes,
+      lastIntake,
+      verifiedExternalLookup,
+    ] = await Promise.all([
         scheduleId
           ? this.scheduleRepository.findByIdAndProfileId(scheduleId, profile.id)
           : Promise.resolve(null),
@@ -81,6 +88,10 @@ export class SafetyService {
         this.intakeRepository.findLastTakenByMedication(
           profile.id,
           medication.id,
+        ),
+        this.medicineLookupRepository.findVerifiedAttemptByUserMedicationId(
+          medication.id,
+          profile.id,
         ),
       ]);
 
@@ -99,6 +110,7 @@ export class SafetyService {
       medication,
       selectedSchedule,
       activeMedicationSchedules,
+      hasVerifiedExternalLookup: verifiedExternalLookup !== null,
       scheduledTime: payload.scheduledTime ?? null,
       todayTakenCount: todayIntakes.length,
       lastTakenAt: lastIntake?.taken_at ?? null,
@@ -120,6 +132,8 @@ export class SafetyService {
         activeScheduleIds: activeMedicationSchedules.map(
           (schedule) => schedule.id,
         ),
+        hasVerifiedExternalLookup: verifiedExternalLookup !== null,
+        verifiedExternalLookupId: verifiedExternalLookup?.id ?? null,
         todayTakenCount: todayIntakes.length,
         lastTakenAt: lastIntake?.taken_at ?? null,
       },

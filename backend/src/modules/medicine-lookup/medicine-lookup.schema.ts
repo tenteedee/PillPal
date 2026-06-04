@@ -39,10 +39,22 @@ export const medicineDataSourceListInputSchema = paginationInputSchema
   )
   .strict();
 
+export const saveLookupMedicationBodySchema = z.preprocess(
+  (value) => value ?? {},
+  z.object({
+    externalCandidateId: z.string().uuid().optional(),
+    note: z.string().trim().max(1000).nullable().optional(),
+  }).strict(),
+);
+
 export type MedicineLookupListInput = z.infer<
   typeof medicineLookupListInputSchema
 >;
 
 export type MedicineDataSourceListInput = z.infer<
   typeof medicineDataSourceListInputSchema
+>;
+
+export type SaveLookupMedicationBody = z.infer<
+  typeof saveLookupMedicationBodySchema
 >;

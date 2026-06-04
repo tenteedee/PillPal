@@ -6,6 +6,7 @@ import { HTTP_STATUS } from "../../shared/constants/http/http-status.js";
 import { HttpError } from "../../shared/errors/http-error.js";
 import { parseGetListInput } from "../../shared/utils/list.js";
 import { sendSuccess } from "../../shared/utils/response.js";
+import { MedicationRepository } from "../medication/medication.repository.js";
 import { ProfileRepository } from "../profile/profile.repository.js";
 import { MedicineLookupRepository } from "./medicine-lookup.repository.js";
 import {
@@ -17,6 +18,7 @@ import { MedicineLookupService } from "./medicine-lookup.service.js";
 const medicineLookupService = new MedicineLookupService(
   new MedicineLookupRepository(),
   new ProfileRepository(),
+  new MedicationRepository(),
 );
 
 function requireLookupId(value: unknown): string {
@@ -59,6 +61,39 @@ class MedicineLookupController {
         requireLookupId(req.params.id),
       );
       sendSuccess(res, lookup);
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  runById = async (
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> => {
+    try {
+      const lookup = await medicineLookupService.runMyLookup(
+        req.userId as string,
+        requireLookupId(req.params.id),
+      );
+      sendSuccess(res, lookup);
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  saveMedicationById = async (
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> => {
+    try {
+      const result = await medicineLookupService.saveMyLookupAsMedication(
+        req.userId as string,
+        requireLookupId(req.params.id),
+        req.body,
+      );
+      sendSuccess(res, result);
     } catch (error) {
       next(error);
     }

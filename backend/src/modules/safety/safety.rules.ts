@@ -17,7 +17,7 @@ export function evaluateSafetyRules(input: SafetyRuleInput): SafetyRuleOutput {
     reasons.push(reason("MEDICATION_INACTIVE", "blocked"));
   }
 
-  if (!input.medication.catalog_id) {
+  if (!input.medication.catalog_id && !input.hasVerifiedExternalLookup) {
     reasons.push(reason("MEDICATION_NOT_VERIFIED_IN_CATALOG", "warning"));
   }
 

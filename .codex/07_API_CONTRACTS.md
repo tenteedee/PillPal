@@ -680,7 +680,7 @@ Missed/skipped dose APIs are not implemented in this stage. For the MVP, missed 
 
 # Medicine lookups
 
-These records prepare the unknown-medicine agentic workflow. They do not perform crawling yet.
+These records run and audit the unknown-medicine agentic workflow.
 
 When `/ai/scan-medication` finds no catalog candidates, backend creates a `medicine_lookup_attempt` with `status = pending`.
 
@@ -707,18 +707,32 @@ general_web
 Initial seeded sources:
 
 ```txt
-Nhà thuốc Long Châu -> distributor, requiredWorkerCount 3
-Pharmacity -> distributor, requiredWorkerCount 3
-Nhà thuốc An Khang -> distributor, requiredWorkerCount 3
+Nhà thuốc Long Châu -> distributor, requiredWorkerCount 1
+Pharmacity -> distributor, requiredWorkerCount 1
+Nhà thuốc An Khang -> distributor, requiredWorkerCount 1
 Cục Quản lý Dược Việt Nam -> administration, requiredWorkerCount 1
 Reputable web search -> general_web, requiredWorkerCount 3
 ```
 
+Worker counts are DB-driven. Stage 5 orchestrator must load active sources by `sourceType` and dispatch `requiredWorkerCount` workers for each source. The supervisor can evaluate a stage only after all dispatched workers for that stage have returned structured output, structured error, or structured timeout.
+
+Lookup workers use the OpenAI SDK to extract structured evidence from fetched source content. Each concrete agent owns a specific prompt:
+
+```txt
+OpenAIMedicineLookupAgent
+DistributorLookupAgent
+GeneralWebLookupAgent
+AdministrationComparisonAgent
+MedicineLookupSupervisorAgent
+```
+
+If `OPENAI_API_KEY` is missing or a model call fails, the worker stores deterministic fallback evidence with `analysisSource = "fallback"`.
+
 Source responsibility:
 
 - `distributor`: trusted pharmacy/distributor evidence. If found here, Stage 5 can move directly to candidate confirmation because Vietnamese distributors are expected to sell administration-authorized medicines.
-- `general_web`: fallback evidence when distributor workers cannot find the pill. Must use at least 3 web workers and only reputable sites.
-- `administration`: Vietnam region authorization check. Used after general-web discovery, handled by 1 administration comparison worker.
+- `general_web`: fallback evidence when distributor workers cannot find the pill. Use reputable sites only.
+- `administration`: Vietnam region authorization check. Used after general-web discovery.
 
 Response:
 
@@ -730,7 +744,7 @@ Response:
       "name": "Nhà thuốc Long Châu",
       "baseUrl": "https://nhathuoclongchau.com.vn/",
       "sourceType": "distributor",
-      "requiredWorkerCount": 3,
+      "requiredWorkerCount": 1,
       "isActive": true,
       "createdAt": "2026-06-05T00:00:00.000Z",
       "updatedAt": "2026-06-05T00:00:00.000Z"
@@ -783,9 +797,107 @@ Response:
 }
 ```
 
+## POST `/medicine-lookups/:id/run`
+
+Run the unknown medicine lookup orchestrator for the current user's lookup attempt.
+
+Execution rules:
+
+- Source groups are loaded from active `medicine_data_sources`.
+- For each source, backend dispatches `requiredWorkerCount` workers.
+- Workers inside the same stage may run in parallel.
+- Mission stages remain sequential:
+
+```txt
+distributor -> supervisor -> general_web -> supervisor -> administration -> supervisor
+```
+
+- Supervisor evaluates a stage only after every dispatched worker in that stage returns structured output, structured error, or structured timeout.
+- If distributor evidence is a clear match, backend returns early and skips general web plus administration.
+- If distributor evidence is insufficient, backend runs general web workers.
+- If general web finds a probable candidate, backend runs administration comparison.
+- New medicines are not saved to `medication_catalogs`.
+- A verified external medicine may later be saved only into the current user's `user_medications`.
+- If scan extraction already proves the product is not for human medication use, such as packaging text saying "for veterinary use only", backend rejects the lookup deterministically before running external workers.
+
+Response:
+
+Same shape as `GET /medicine-lookups/:id`, with updated `status`, `evidence`, and `externalCandidates`.
+
+Possible outcomes:
+
+```txt
+verified
+needs_admin_review
+rejected
+failed
+```
+
+Notes:
+
+- Distributor clear match saves an external candidate with `verificationStatus = externally_verified`.
+- General web match plus administration match saves an external candidate with `verificationStatus = externally_verified`.
+- General web match without clear administration match saves an external candidate with `verificationStatus = needs_admin_review`.
+- No reliable evidence marks the lookup as `failed` or `needs_admin_review`.
+
+## POST `/medicine-lookups/:id/save-medication`
+
+Save a verified external medicine lookup candidate into the current user's medication list.
+
+This endpoint is the Stage 6 bridge from unknown-medicine verification back into the normal medication flow. It does **not** save the medicine to `medication_catalogs`.
+
+Rules:
+
+- Lookup must belong to the current user.
+- Lookup must have `status = verified`.
+- Candidate must have `authorizationStatus = authorized`.
+- Candidate must have `verificationStatus = externally_verified`.
+- If `externalCandidateId` is omitted, backend uses the first saveable candidate for the lookup.
+- If the lookup is already linked to a `userMedicationId`, backend returns the existing medication instead of creating a duplicate.
+- Safety checks treat this saved medication as externally verified, even though `catalogId` remains `null`.
+- After saving, frontend may create a schedule with the existing `POST /schedules` endpoint using the returned `medication.id`.
+
+Request:
+
+```json
+{
+  "externalCandidateId": "uuid-optional",
+  "note": "Bought while traveling. Optional user note."
+}
+```
+
+Response:
+
+```json
+{
+  "data": {
+    "lookup": {
+      "id": "uuid",
+      "userMedicationId": "created-user-medication-id",
+      "status": "verified",
+      "externalCandidates": []
+    },
+    "medication": {
+      "id": "created-user-medication-id",
+      "profileId": "uuid",
+      "catalogId": null,
+      "name": "Tiffy",
+      "activeIngredient": "Paracetamol",
+      "strength": "500mg",
+      "dosageForm": "tablet",
+      "note": "Bought while traveling. Optional user note.",
+      "imageUrl": null,
+      "isActive": true,
+      "createdAt": "2026-06-05T00:00:00.000Z",
+      "updatedAt": "2026-06-05T00:00:00.000Z"
+    }
+  }
+}
+```
+
 ## GET `/medicine-lookups/:id`
 
-Get lookup detail, including future worker evidence and external medication candidates.
+Get lookup detail, including worker evidence and external medication candidates.
 
 Response:
 
@@ -810,7 +922,7 @@ Response:
 }
 ```
 
-Stage 5 agents will populate `evidence` and `externalCandidates`.
+`POST /medicine-lookups/:id/run` populates `evidence` and `externalCandidates`.
 
 ---
 

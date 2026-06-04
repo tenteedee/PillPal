@@ -17,6 +17,7 @@ const aiService = new AiService(
   new MedicineLookupService(
     new MedicineLookupRepository(),
     profileRepository,
+    new MedicationRepository(),
   ),
 );
 
