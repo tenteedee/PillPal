@@ -1,98 +1,179 @@
-import { Image } from 'expo-image';
-import { Platform, StyleSheet } from 'react-native';
+import Ionicons from '@expo/vector-icons/Ionicons';
+import { StyleSheet, Text, View } from 'react-native';
 
-import { HelloWave } from '@/components/hello-wave';
-import ParallaxScrollView from '@/components/parallax-scroll-view';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Link } from 'expo-router';
+import { AppButton, GlassCard, SectionTitle, StatusChip } from '@/src/components/PillPalUI';
+import { PillPalScreen } from '@/src/components/PillPalScreen';
+import { palette, radius, shadows, spacing, typography } from '@/src/theme/pillpal';
 
-export default function HomeScreen() {
+export default function ScanScreen() {
   return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
-      headerImage={
-        <Image
-          source={require('@/assets/images/partial-react-logo.png')}
-          style={styles.reactLogo}
-        />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Welcome!</ThemedText>
-        <HelloWave />
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 1: Try it</ThemedText>
-        <ThemedText>
-          Edit <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> to see changes.
-          Press{' '}
-          <ThemedText type="defaultSemiBold">
-            {Platform.select({
-              ios: 'cmd + d',
-              android: 'cmd + m',
-              web: 'F12',
-            })}
-          </ThemedText>{' '}
-          to open developer tools.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <Link href="/modal">
-          <Link.Trigger>
-            <ThemedText type="subtitle">Step 2: Explore</ThemedText>
-          </Link.Trigger>
-          <Link.Preview />
-          <Link.Menu>
-            <Link.MenuAction title="Action" icon="cube" onPress={() => alert('Action pressed')} />
-            <Link.MenuAction
-              title="Share"
-              icon="square.and.arrow.up"
-              onPress={() => alert('Share pressed')}
-            />
-            <Link.Menu title="More" icon="ellipsis">
-              <Link.MenuAction
-                title="Delete"
-                icon="trash"
-                destructive
-                onPress={() => alert('Delete pressed')}
-              />
-            </Link.Menu>
-          </Link.Menu>
-        </Link>
+    <PillPalScreen
+      eyebrow="PillPal Safety"
+      title="Quét thuốc trước khi uống"
+      subtitle="AI chỉ gợi ý tên thuốc. Bạn luôn xác nhận trước khi hệ thống kiểm tra an toàn bằng luật.">
+      <View style={styles.scanHero}>
+        <View style={styles.cameraPlate}>
+          <View style={styles.scanFrame}>
+            <View style={[styles.corner, styles.cornerTopLeft]} />
+            <View style={[styles.corner, styles.cornerTopRight]} />
+            <View style={[styles.corner, styles.cornerBottomLeft]} />
+            <View style={[styles.corner, styles.cornerBottomRight]} />
+            <View style={styles.scanBeam} />
+            <Ionicons name="medical" size={54} color={palette.primarySoft} />
+            <Text style={styles.scanHint}>Đưa vỉ thuốc hoặc hộp thuốc vào khung</Text>
+          </View>
+        </View>
+        <View style={styles.heroActions}>
+          <AppButton label="Mở camera" icon="camera" style={styles.flexButton} />
+          <AppButton label="Chọn ảnh" icon="image" variant="light" style={styles.flexButton} />
+        </View>
+      </View>
 
-        <ThemedText>
-          {`Tap the Explore tab to learn more about what's included in this starter app.`}
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 3: Get a fresh start</ThemedText>
-        <ThemedText>
-          {`When you're ready, run `}
-          <ThemedText type="defaultSemiBold">npm run reset-project</ThemedText> to get a fresh{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> directory. This will move the current{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> to{' '}
-          <ThemedText type="defaultSemiBold">app-example</ThemedText>.
-        </ThemedText>
-      </ThemedView>
-    </ParallaxScrollView>
+      <GlassCard style={styles.confirmCard}>
+        <StatusChip label="Cần xác nhận thủ công" icon="shield-checkmark" tone="amber" />
+        <Text style={styles.confirmTitle}>Tôi nghĩ đây có thể là thuốc bạn đang cầm.</Text>
+        <Text style={styles.confirmBody}>Kết quả scan sau này sẽ hiện ở đây để bạn kiểm tra trước khi tiếp tục.</Text>
+        <View style={styles.buttonRow}>
+          <AppButton label="Đúng, kiểm tra" icon="checkmark-circle" variant="primary" style={styles.flexButton} />
+          <AppButton label="Chọn thủ công" icon="list" variant="secondary" style={styles.flexButton} />
+        </View>
+      </GlassCard>
+
+      <SectionTitle title="Luồng an toàn" />
+      <View style={styles.flowRow}>
+        <View style={styles.flowStep}>
+          <Ionicons name="scan" size={20} color={palette.primary} />
+          <Text style={styles.flowText}>Scan</Text>
+        </View>
+        <View style={styles.flowStep}>
+          <Ionicons name="person" size={20} color={palette.blue} />
+          <Text style={styles.flowText}>Xác nhận</Text>
+        </View>
+        <View style={styles.flowStep}>
+          <Ionicons name="shield" size={20} color={palette.violet} />
+          <Text style={styles.flowText}>Rule check</Text>
+        </View>
+      </View>
+    </PillPalScreen>
   );
 }
 
 const styles = StyleSheet.create({
-  titleContainer: {
-    flexDirection: 'row',
+  scanHero: {
+    gap: spacing.lg,
+  },
+  cameraPlate: {
+    minHeight: 340,
+    borderRadius: radius.xl,
+    backgroundColor: palette.ink,
+    padding: spacing.lg,
+    ...shadows.lift,
+  },
+  scanFrame: {
+    flex: 1,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.16)',
     alignItems: 'center',
-    gap: 8,
+    justifyContent: 'center',
+    gap: spacing.md,
+    overflow: 'hidden',
   },
-  stepContainer: {
-    gap: 8,
-    marginBottom: 8,
-  },
-  reactLogo: {
-    height: 178,
-    width: 290,
-    bottom: 0,
-    left: 0,
+  scanBeam: {
     position: 'absolute',
+    left: 18,
+    right: 18,
+    height: 3,
+    top: '46%',
+    backgroundColor: palette.primarySoft,
+    opacity: 0.78,
+  },
+  corner: {
+    position: 'absolute',
+    width: 46,
+    height: 46,
+    borderColor: palette.primarySoft,
+  },
+  cornerTopLeft: {
+    top: 18,
+    left: 18,
+    borderTopWidth: 4,
+    borderLeftWidth: 4,
+    borderTopLeftRadius: radius.sm,
+  },
+  cornerTopRight: {
+    top: 18,
+    right: 18,
+    borderTopWidth: 4,
+    borderRightWidth: 4,
+    borderTopRightRadius: radius.sm,
+  },
+  cornerBottomLeft: {
+    bottom: 18,
+    left: 18,
+    borderBottomWidth: 4,
+    borderLeftWidth: 4,
+    borderBottomLeftRadius: radius.sm,
+  },
+  cornerBottomRight: {
+    right: 18,
+    bottom: 18,
+    borderRightWidth: 4,
+    borderBottomWidth: 4,
+    borderBottomRightRadius: radius.sm,
+  },
+  scanHint: {
+    color: palette.white,
+    fontSize: typography.body,
+    fontWeight: '800',
+    textAlign: 'center',
+    paddingHorizontal: spacing.xl,
+    lineHeight: 23,
+  },
+  heroActions: {
+    flexDirection: 'row',
+    gap: spacing.md,
+  },
+  confirmCard: {
+    gap: spacing.md,
+  },
+  confirmTitle: {
+    color: palette.ink,
+    fontSize: typography.lead,
+    fontWeight: '900',
+    lineHeight: 24,
+  },
+  confirmBody: {
+    color: palette.muted,
+    fontSize: typography.body,
+    fontWeight: '500',
+    lineHeight: 23,
+  },
+  buttonRow: {
+    flexDirection: 'row',
+    gap: spacing.md,
+  },
+  flexButton: {
+    flex: 1,
+  },
+  flowRow: {
+    flexDirection: 'row',
+    gap: spacing.md,
+  },
+  flowStep: {
+    flex: 1,
+    minHeight: 88,
+    borderRadius: radius.md,
+    backgroundColor: palette.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+    borderWidth: 1,
+    borderColor: palette.mutedLight,
+  },
+  flowText: {
+    color: palette.ink,
+    fontSize: typography.small,
+    fontWeight: '900',
   },
 });
