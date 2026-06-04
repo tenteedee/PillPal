@@ -24,13 +24,13 @@ export default function TabLayout() {
           left: 18,
           right: 18,
           bottom: 18,
-          height: 76,
-          paddingTop: 10,
+          height: 78,
+          paddingTop: 9,
           paddingBottom: 12,
           borderRadius: radius.lg,
           borderTopWidth: 0,
           backgroundColor: palette.surface,
-          shadowColor: '#0B1412',
+          shadowColor: palette.ink,
           shadowOpacity: 0.12,
           shadowOffset: { width: 0, height: 10 },
           shadowRadius: 24,
@@ -40,7 +40,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: 'AI scan',
+          title: 'Quét',
           tabBarIcon: ({ color, focused }) => (
             <Ionicons name={focused ? 'scan' : 'scan-outline'} size={25} color={color} />
           ),

@@ -29,6 +29,14 @@
     "plugins": [
       "expo-router",
       [
+        "expo-camera",
+        {
+          "cameraPermission": "Cho phép PillPal mở camera để quét thuốc trước khi uống.",
+          "microphonePermission": "PillPal không cần micro cho luồng quét thuốc.",
+          "recordAudioAndroid": false
+        }
+      ],
+      [
         "expo-splash-screen",
         {
           "image": "./assets/images/splash-icon.png",

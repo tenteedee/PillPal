@@ -50,13 +50,16 @@ export default function FamilyCabinetScreen() {
 const styles = StyleSheet.create({
   actions: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: spacing.md,
   },
   action: {
     flex: 1,
+    minWidth: 148,
   },
   statusGrid: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: spacing.md,
   },
   statusChip: {

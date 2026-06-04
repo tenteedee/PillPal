@@ -5,30 +5,60 @@ import { StatusBar } from 'expo-status-bar';
 import { useEffect, useMemo } from 'react';
 import 'react-native-reanimated';
 
-import { palette } from '@/src/theme/pillpal';
+import { apiFetch } from '@/src/api/client';
 import { useAuthStore } from '@/src/store/auth';
+import { palette } from '@/src/theme/pillpal';
 
 export const unstable_settings = {
   anchor: '(tabs)',
 };
 
+type AuthMeResponse = {
+  id: string;
+  email: string | null;
+};
+
 function AuthGuard() {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const hasCheckedSession = useAuthStore((state) => state.hasCheckedSession);
+  const setCookieSession = useAuthStore((state) => state.setCookieSession);
+  const markSessionChecked = useAuthStore((state) => state.markSessionChecked);
   const segments = useSegments();
   const router = useRouter();
 
   useEffect(() => {
-    // Check if the current segment is the login screen
+    if (hasCheckedSession) return;
+
+    let cancelled = false;
+
+    apiFetch<AuthMeResponse>('/auth/me')
+      .then((user) => {
+        if (!cancelled) {
+          setCookieSession({ id: user.id, email: user.email });
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          markSessionChecked();
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [hasCheckedSession, markSessionChecked, setCookieSession]);
+
+  useEffect(() => {
+    if (!hasCheckedSession) return;
+
     const isLoginScreen = segments[0] === 'login';
 
     if (!isAuthenticated && !isLoginScreen) {
-      // Redirect to the login screen if not authenticated
       router.replace('/login');
     } else if (isAuthenticated && isLoginScreen) {
-      // Redirect to the home screen if authenticated and trying to access login
       router.replace('/(tabs)');
     }
-  }, [isAuthenticated, segments, router]);
+  }, [hasCheckedSession, isAuthenticated, segments, router]);
 
   return null;
 }
@@ -66,4 +96,3 @@ export default function RootLayout() {
     </QueryClientProvider>
   );
 }
-

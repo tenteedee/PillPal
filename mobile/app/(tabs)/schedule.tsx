@@ -51,6 +51,7 @@ export default function ScheduleScreen() {
 const styles = StyleSheet.create({
   metrics: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: spacing.md,
   },
   quickPanel: {
@@ -58,10 +59,12 @@ const styles = StyleSheet.create({
     backgroundColor: palette.ink,
     padding: spacing.md,
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: spacing.md,
   },
   primaryAction: {
     flex: 1,
+    minWidth: 148,
   },
   ruleCards: {
     gap: spacing.md,

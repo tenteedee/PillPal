@@ -27,7 +27,7 @@ function getBaseCookieOptions(): CookieOptions {
   return {
     httpOnly: true,
     secure: env.NODE_ENV === 'production',
-    sameSite: 'lax',
+    sameSite: env.NODE_ENV === 'production' ? 'none' : 'lax',
     path: '/',
   };
 }
