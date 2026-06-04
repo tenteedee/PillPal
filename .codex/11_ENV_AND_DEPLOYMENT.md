@@ -15,6 +15,7 @@ SUPABASE_STORAGE_BUCKET=medication-images
 
 OPENAI_API_KEY=your-openai-api-key
 OPENAI_MODEL=gpt-4.1-mini
+EXPO_ACCESS_TOKEN=
 
 APP_TIMEZONE=Asia/Ho_Chi_Minh
 ENABLE_MOCK_AI_SCAN=true

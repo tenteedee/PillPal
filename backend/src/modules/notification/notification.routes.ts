@@ -68,4 +68,28 @@ notificationRouter.get("/", notificationController.list);
  */
 notificationRouter.get("/:id", notificationController.getById);
 
+/**
+ * @openapi
+ * /notifications/{id}/send:
+ *   post:
+ *     tags:
+ *       - Notification
+ *     summary: Send current user's notification event through Expo Push Service
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *     responses:
+ *       200:
+ *         description: OK
+ *       404:
+ *         description: Notification not found
+ */
+notificationRouter.post("/:id/send", notificationController.sendById);
+
 export { notificationRouter };

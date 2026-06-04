@@ -2,7 +2,9 @@ import { ERROR_CODE } from "../../shared/constants/error/error-codes.js";
 import { ERROR_MESSAGE } from "../../shared/constants/error/error-messages.js";
 import { HTTP_STATUS } from "../../shared/constants/http/http-status.js";
 import { HttpError } from "../../shared/errors/http-error.js";
+import { DeviceRepository } from "../device/device.repository.js";
 import { ProfileRepository } from "../profile/profile.repository.js";
+import { ExpoPushService } from "./expo-push.service.js";
 import { mapNotificationEventRowToDto } from "./notification.mapper.js";
 import { NotificationRepository } from "./notification.repository.js";
 import type {
@@ -11,6 +13,7 @@ import type {
 } from "./notification.schema.js";
 import type {
   NotificationEventDto,
+  ExpoPushSendResultDto,
   NotificationEventStatus,
 } from "./notification.types.js";
 
@@ -18,6 +21,8 @@ export class NotificationService {
   constructor(
     private readonly notificationRepository: NotificationRepository,
     private readonly profileRepository: ProfileRepository,
+    private readonly deviceRepository: DeviceRepository,
+    private readonly expoPushService: ExpoPushService,
   ) {}
 
   private async getProfileIdByUserId(userId: string): Promise<string> {
@@ -73,6 +78,77 @@ export class NotificationService {
     return mapNotificationEventRowToDto(row);
   }
 
+  async sendMyNotificationById(
+    userId: string,
+    notificationId: string,
+  ): Promise<ExpoPushSendResultDto> {
+    const profileId = await this.getProfileIdByUserId(userId);
+    const row = await this.notificationRepository.findByIdAndRecipientProfileId(
+      notificationId,
+      profileId,
+    );
+
+    if (!row) {
+      throw new HttpError(
+        HTTP_STATUS.NOT_FOUND,
+        ERROR_CODE.NOTIFICATION_EVENT_NOT_FOUND,
+        ERROR_MESSAGE.NOTIFICATION_EVENT_NOT_FOUND,
+      );
+    }
+
+    if (row.status === "sent") {
+      return {
+        notification: mapNotificationEventRowToDto(row),
+        tickets: [],
+      };
+    }
+
+    const pushTokens = await this.deviceRepository.listActiveByProfileId(
+      row.recipient_profile_id,
+    );
+
+    if (pushTokens.length === 0) {
+      const failed = await this.markFailed(row.id, "No active push tokens");
+      return {
+        notification: failed ?? mapNotificationEventRowToDto(row),
+        tickets: [],
+      };
+    }
+
+    try {
+      const tickets = await this.expoPushService.sendNotification({
+        expoPushTokens: pushTokens.map((token) => token.expo_push_token),
+        notification: row,
+      });
+      const failedTickets = tickets.filter((ticket) => ticket.status === "error");
+
+      if (failedTickets.length > 0 && failedTickets.length === tickets.length) {
+        const failed = await this.markFailed(
+          row.id,
+          summarizeExpoTicketErrors(failedTickets),
+        );
+
+        return {
+          notification: failed ?? mapNotificationEventRowToDto(row),
+          tickets,
+        };
+      }
+
+      const sent = await this.markSent(row.id);
+
+      return {
+        notification: sent ?? mapNotificationEventRowToDto(row),
+        tickets,
+      };
+    } catch (error) {
+      const failed = await this.markFailed(row.id, getErrorMessage(error));
+      return {
+        notification: failed ?? mapNotificationEventRowToDto(row),
+        tickets: [],
+      };
+    }
+  }
+
   async markSent(id: string): Promise<NotificationEventDto | null> {
     const row = await this.notificationRepository.updateStatusById(
       id,
@@ -102,4 +178,16 @@ export class NotificationService {
     );
     return row ? mapNotificationEventRowToDto(row) : null;
   }
+}
+
+function summarizeExpoTicketErrors(
+  tickets: Array<{ message?: string; details?: { error?: string } }>,
+): string {
+  return tickets
+    .map((ticket) => ticket.details?.error ?? ticket.message ?? "Expo push error")
+    .join("; ");
+}
+
+function getErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : "Unknown Expo push error";
 }
