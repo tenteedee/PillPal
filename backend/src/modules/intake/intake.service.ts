@@ -102,12 +102,65 @@ export class IntakeService {
       );
     }
 
+    if ((safetyCheck.medication_schedule_id ?? null) !== (payload.scheduleId ?? null)) {
+      throw new HttpError(
+        HTTP_STATUS.BAD_REQUEST,
+        ERROR_CODE.VALIDATION_ERROR,
+        "Safety check does not belong to the selected schedule",
+      );
+    }
+
+    if ((safetyCheck.scheduled_time ?? null) !== (payload.scheduledTime ?? null)) {
+      throw new HttpError(
+        HTTP_STATUS.BAD_REQUEST,
+        ERROR_CODE.VALIDATION_ERROR,
+        "Safety check does not belong to the selected scheduled time",
+      );
+    }
+
     if (!safetyCheck.can_confirm_intake || safetyCheck.result === "blocked") {
       throw new HttpError(
         HTTP_STATUS.CONFLICT,
         ERROR_CODE.INTAKE_NOT_ALLOWED,
         ERROR_MESSAGE.INTAKE_NOT_ALLOWED,
       );
+    }
+
+    const duplicateSafetyCheckIntake =
+      await this.intakeRepository.findTakenBySafetyCheckEventId(
+        profileId,
+        payload.safetyCheckEventId,
+      );
+    if (duplicateSafetyCheckIntake) {
+      throw new HttpError(
+        HTTP_STATUS.CONFLICT,
+        ERROR_CODE.INTAKE_NOT_ALLOWED,
+        "This safety check has already been used to confirm an intake",
+      );
+    }
+
+    if (payload.scheduleId && payload.scheduledTime) {
+      const effectiveTakenAt = payload.takenAt
+        ? new Date(payload.takenAt)
+        : new Date();
+      const localDate = getLocalDateString(effectiveTakenAt, env.APP_TIMEZONE);
+      const range = getLocalDateUtcRange(localDate, env.APP_TIMEZONE);
+      const duplicateScheduledIntake =
+        await this.intakeRepository.findTakenByScheduleTimeAndTakenAtRange({
+          profileId,
+          scheduleId: payload.scheduleId,
+          scheduledTime: payload.scheduledTime,
+          startIso: range.start.toISOString(),
+          endIso: range.end.toISOString(),
+        });
+
+      if (duplicateScheduledIntake) {
+        throw new HttpError(
+          HTTP_STATUS.CONFLICT,
+          ERROR_CODE.INTAKE_NOT_ALLOWED,
+          "This scheduled dose has already been confirmed for this day",
+        );
+      }
     }
 
     const warningSnapshot =
@@ -144,6 +197,15 @@ function getLocalDateUtcRange(
   const end = new Date(start.getTime() + 24 * 60 * 60 * 1000);
 
   return { start, end };
+}
+
+function getLocalDateString(date: Date, timeZone: string): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(date);
 }
 
 function getUtcDateFromLocalDateTime(

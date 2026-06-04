@@ -10,6 +10,9 @@ import type {
   SafetySeverity,
 } from "./safety.types.js";
 
+const ALLOWED_EARLY_MINUTES = 30;
+const ALLOWED_LATE_MINUTES = 120;
+
 export function evaluateSafetyRules(input: SafetyRuleInput): SafetyRuleOutput {
   const reasons: SafetyReason[] = [];
 
@@ -35,6 +38,7 @@ export function evaluateSafetyRules(input: SafetyRuleInput): SafetyRuleOutput {
   }
 
   evaluateSelectedScheduleRules(input, reasons);
+  evaluateScheduledTimeRules(input, reasons);
   evaluateActivePlanRules(input, reasons);
 
   const result = reasons.some((item) => item.severity === "blocked")
@@ -49,6 +53,56 @@ export function evaluateSafetyRules(input: SafetyRuleInput): SafetyRuleOutput {
     reasons,
     suggestedAction: SAFETY_SUGGESTED_ACTION[result],
   };
+}
+
+function evaluateScheduledTimeRules(
+  input: SafetyRuleInput,
+  reasons: SafetyReason[],
+): void {
+  if (!input.scheduledTime) {
+    return;
+  }
+
+  const selectedSchedule = input.selectedSchedule;
+  const activeSchedules = input.activeMedicationSchedules.filter(
+    (schedule) => schedule.user_medication_id === input.medication.id,
+  );
+  const schedulesToCheck = selectedSchedule ? [selectedSchedule] : activeSchedules;
+  const scheduledTimeExists = schedulesToCheck.some((schedule) =>
+    schedule.times.includes(input.scheduledTime as string),
+  );
+
+  if (!scheduledTimeExists) {
+    reasons.push(
+      reason("NOT_SCHEDULED_TIME", "warning", {
+        scheduledTime: input.scheduledTime,
+        scheduleIds: schedulesToCheck.map((schedule) => schedule.id),
+      }),
+    );
+    return;
+  }
+
+  const nowMinutes = getLocalMinutes(input.now, input.timeZone);
+  const scheduledMinutes = parseTimeToMinutes(input.scheduledTime);
+
+  if (nowMinutes < scheduledMinutes - ALLOWED_EARLY_MINUTES) {
+    reasons.push(
+      reason("TOO_EARLY", "warning", {
+        scheduledTime: input.scheduledTime,
+        allowedEarlyMinutes: ALLOWED_EARLY_MINUTES,
+      }),
+    );
+    return;
+  }
+
+  if (nowMinutes > scheduledMinutes + ALLOWED_LATE_MINUTES) {
+    reasons.push(
+      reason("DOSE_TIME_PASSED", "warning", {
+        scheduledTime: input.scheduledTime,
+        allowedLateMinutes: ALLOWED_LATE_MINUTES,
+      }),
+    );
+  }
 }
 
 function evaluateSelectedScheduleRules(
@@ -176,4 +230,24 @@ function reason(
 
 function normalizeText(value: string): string {
   return value.toLowerCase().trim();
+}
+
+function parseTimeToMinutes(time: string): number {
+  const [hour = "0", minute = "0"] = time.split(":");
+  return Number(hour) * 60 + Number(minute);
+}
+
+function getLocalMinutes(date: Date, timeZone: string): number {
+  const formatter = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+  const parts = Object.fromEntries(
+    formatter.formatToParts(date).map((part) => [part.type, part.value]),
+  );
+  const hour = Number(parts.hour === "24" ? "0" : parts.hour);
+
+  return hour * 60 + Number(parts.minute);
 }

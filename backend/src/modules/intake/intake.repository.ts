@@ -91,6 +91,66 @@ export class IntakeRepository {
     return data;
   }
 
+  async findTakenBySafetyCheckEventId(
+    profileId: string,
+    safetyCheckEventId: string,
+  ): Promise<IntakeEventRow | null> {
+    const supabase = getSupabaseClient();
+
+    const { data, error } = await supabase
+      .from("intake_events")
+      .select("*")
+      .eq("profile_id", profileId)
+      .eq("safety_check_event_id", safetyCheckEventId)
+      .eq("status", "taken")
+      .limit(1)
+      .maybeSingle<IntakeEventRow>();
+
+    if (error) {
+      throw new HttpError(
+        HTTP_STATUS.INTERNAL_SERVER_ERROR,
+        ERROR_CODE.INTAKE_READ_FAILED,
+        `Failed to read intake event for safety check ${safetyCheckEventId}`,
+        error,
+      );
+    }
+
+    return data;
+  }
+
+  async findTakenByScheduleTimeAndTakenAtRange(input: {
+    profileId: string;
+    scheduleId: string;
+    scheduledTime: string;
+    startIso: string;
+    endIso: string;
+  }): Promise<IntakeEventRow | null> {
+    const supabase = getSupabaseClient();
+
+    const { data, error } = await supabase
+      .from("intake_events")
+      .select("*")
+      .eq("profile_id", input.profileId)
+      .eq("medication_schedule_id", input.scheduleId)
+      .eq("scheduled_time", input.scheduledTime)
+      .eq("status", "taken")
+      .gte("taken_at", input.startIso)
+      .lt("taken_at", input.endIso)
+      .limit(1)
+      .maybeSingle<IntakeEventRow>();
+
+    if (error) {
+      throw new HttpError(
+        HTTP_STATUS.INTERNAL_SERVER_ERROR,
+        ERROR_CODE.INTAKE_READ_FAILED,
+        `Failed to read intake event for schedule ${input.scheduleId} at ${input.scheduledTime}`,
+        error,
+      );
+    }
+
+    return data;
+  }
+
   async listByProfileIdAndTakenAtRange(
     profileId: string,
     startIso: string,
