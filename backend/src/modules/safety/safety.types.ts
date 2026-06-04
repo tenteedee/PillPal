@@ -33,7 +33,8 @@ export type SafetyRuleInput = {
   timeZone: string;
   profile: ProfileRow;
   medication: UserMedicationRow;
-  schedule: MedicationScheduleRow | null;
+  selectedSchedule: MedicationScheduleRow | null;
+  activeMedicationSchedules: MedicationScheduleRow[];
   scheduledTime: string | null;
   todayTakenCount: number;
   lastTakenAt: string | null;

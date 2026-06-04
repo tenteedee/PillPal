@@ -60,35 +60,45 @@ export class SafetyService {
       );
     }
 
-    const scheduleId = payload.scheduleId ?? null;
-    const schedule = scheduleId
-      ? await this.scheduleRepository.findByIdAndProfileId(
-          scheduleId,
-          profile.id,
-        )
-      : null;
-
     const now = new Date();
     const range = getLocalDayUtcRange(now, env.APP_TIMEZONE);
-    const [todayIntakes, lastIntake] = await Promise.all([
-      this.intakeRepository.listTakenByMedicationAndTakenAtRange(
-        profile.id,
-        medication.id,
-        range.start.toISOString(),
-        range.end.toISOString(),
-      ),
-      this.intakeRepository.findLastTakenByMedication(
-        profile.id,
-        medication.id,
-      ),
-    ]);
+    const scheduleId = payload.scheduleId ?? null;
+    const [selectedSchedule, activeMedicationSchedules, todayIntakes, lastIntake] =
+      await Promise.all([
+        scheduleId
+          ? this.scheduleRepository.findByIdAndProfileId(scheduleId, profile.id)
+          : Promise.resolve(null),
+        this.scheduleRepository.listActiveByMedicationId(
+          profile.id,
+          medication.id,
+        ),
+        this.intakeRepository.listTakenByMedicationAndTakenAtRange(
+          profile.id,
+          medication.id,
+          range.start.toISOString(),
+          range.end.toISOString(),
+        ),
+        this.intakeRepository.findLastTakenByMedication(
+          profile.id,
+          medication.id,
+        ),
+      ]);
+
+    if (scheduleId && !selectedSchedule) {
+      throw new HttpError(
+        HTTP_STATUS.NOT_FOUND,
+        ERROR_CODE.SCHEDULE_NOT_FOUND,
+        ERROR_MESSAGE.SCHEDULE_NOT_FOUND,
+      );
+    }
 
     const ruleOutput = evaluateSafetyRules({
       now,
       timeZone: env.APP_TIMEZONE,
       profile,
       medication,
-      schedule,
+      selectedSchedule,
+      activeMedicationSchedules,
       scheduledTime: payload.scheduledTime ?? null,
       todayTakenCount: todayIntakes.length,
       lastTakenAt: lastIntake?.taken_at ?? null,
@@ -107,6 +117,9 @@ export class SafetyService {
       metadata: {
         medicationName: medication.name,
         activeIngredient: medication.active_ingredient,
+        activeScheduleIds: activeMedicationSchedules.map(
+          (schedule) => schedule.id,
+        ),
         todayTakenCount: todayIntakes.length,
         lastTakenAt: lastIntake?.taken_at ?? null,
       },
