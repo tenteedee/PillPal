@@ -259,4 +259,38 @@ export class CaregiverRepository {
       .filter((row) => row.permissions?.notifyMedicationReminders !== false)
       .map((row) => row.caregiver_profile_id);
   }
+
+  async listAcceptedNotificationCaregiverProfileIds(
+    patientProfileId: string,
+    permission:
+      | "notifySafetyWarnings"
+      | "notifyBlockedAttempts"
+      | "notifyMissedDose"
+      | "notifyMedicationReminders",
+  ): Promise<string[]> {
+    const supabase = getSupabaseClient();
+    const { data, error } = await supabase
+      .from("caregiver_patient_links")
+      .select("caregiver_profile_id, permissions")
+      .eq("patient_profile_id", patientProfileId)
+      .eq("status", "accepted");
+
+    if (error) {
+      throw new HttpError(
+        HTTP_STATUS.INTERNAL_SERVER_ERROR,
+        ERROR_CODE.CAREGIVER_LINK_READ_FAILED,
+        `Failed to list accepted caregivers for notifications ${patientProfileId}`,
+        error,
+      );
+    }
+
+    return (
+      (data as Array<{
+        caregiver_profile_id: string;
+        permissions: Partial<CaregiverLinkPermissions> | null;
+      }>) ?? []
+    )
+      .filter((row) => row.permissions?.[permission] !== false)
+      .map((row) => row.caregiver_profile_id);
+  }
 }
