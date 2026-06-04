@@ -6,7 +6,9 @@ import { HTTP_STATUS } from "../../shared/constants/http/http-status.js";
 import { HttpError } from "../../shared/errors/http-error.js";
 import { parseGetListInput } from "../../shared/utils/list.js";
 import { sendSuccess } from "../../shared/utils/response.js";
+import { DeviceRepository } from "../device/device.repository.js";
 import { ProfileRepository } from "../profile/profile.repository.js";
+import { ExpoPushService } from "./expo-push.service.js";
 import { NotificationRepository } from "./notification.repository.js";
 import { notificationListInputSchema } from "./notification.schema.js";
 import { NotificationService } from "./notification.service.js";
@@ -14,6 +16,8 @@ import { NotificationService } from "./notification.service.js";
 const notificationService = new NotificationService(
   new NotificationRepository(),
   new ProfileRepository(),
+  new DeviceRepository(),
+  new ExpoPushService(),
 );
 
 function requireNotificationId(value: unknown): string {
@@ -57,6 +61,23 @@ class NotificationController {
         notificationId,
       );
       sendSuccess(res, notification);
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  sendById = async (
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> => {
+    try {
+      const notificationId = requireNotificationId(req.params.id);
+      const result = await notificationService.sendMyNotificationById(
+        req.userId as string,
+        notificationId,
+      );
+      sendSuccess(res, result);
     } catch (error) {
       next(error);
     }

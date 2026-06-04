@@ -285,6 +285,39 @@ Response:
 }
 ```
 
+## POST `/notifications/:id/send`
+
+Send a notification event through Expo Push Service.
+
+This is a development/debug endpoint for Stage 4. The current user can only send notifications where they are the recipient.
+
+Behavior:
+
+1. Load notification event.
+2. Load current recipient's active push tokens.
+3. Send Expo push notification.
+4. Mark event `sent` if Expo accepts at least one ticket.
+5. Mark event `failed` if no active tokens exist or all tickets fail.
+
+Response:
+
+```json
+{
+  "data": {
+    "notification": {
+      "id": "notification-event-id",
+      "status": "sent"
+    },
+    "tickets": [
+      {
+        "status": "ok",
+        "id": "expo-ticket-id"
+      }
+    ]
+  }
+}
+```
+
 ---
 
 # Medication catalog

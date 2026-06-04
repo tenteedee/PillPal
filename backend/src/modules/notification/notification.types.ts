@@ -42,3 +42,18 @@ export type NotificationEventDto = {
   createdAt: string;
   updatedAt: string;
 };
+
+export type ExpoPushTicket = {
+  status: "ok" | "error";
+  id?: string;
+  message?: string;
+  details?: {
+    error?: string;
+    [key: string]: unknown;
+  };
+};
+
+export type ExpoPushSendResultDto = {
+  notification: NotificationEventDto;
+  tickets: ExpoPushTicket[];
+};
