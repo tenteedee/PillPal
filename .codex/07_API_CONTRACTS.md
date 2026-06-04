@@ -519,17 +519,23 @@ Response:
 ```json
 {
   "data": {
-    "safetyCheckEventId": "uuid",
-    "status": "warning",
+    "id": "uuid",
+    "profileId": "profile-id",
+    "userMedicationId": "uuid",
+    "scheduleId": "uuid-or-null",
+    "scheduledTime": "08:00",
+    "result": "warning",
     "canConfirmIntake": true,
     "reasons": [
       {
-        "code": "TOO_EARLY_FOR_SCHEDULE",
+        "code": "TOO_EARLY",
         "severity": "warning",
-        "message": "Hiện tại có vẻ chưa đến giờ uống thuốc này."
+        "message": "It is too early to take this scheduled dose."
       }
     ],
-    "suggestedAction": "Vui lòng kiểm tra lại lịch uống hoặc hỏi người hỗ trợ nếu bạn không chắc."
+    "suggestedAction": "Please confirm the information carefully. If unsure, ask a caregiver, pharmacist, or doctor.",
+    "checkedAt": "2026-06-04T00:00:00.000Z",
+    "source": "today_plan"
   }
 }
 ```
