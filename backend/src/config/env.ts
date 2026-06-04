@@ -14,7 +14,7 @@ const envSchema = z.object({
   SUPABASE_STORAGE_BUCKET: z.string().default('medication-images'),
   OPENAI_API_KEY: z.string().optional(),
   OPENAI_MODEL: z.string().default('gpt-4.1-mini'),
-  APP_TIMEZONE: z.string().default('Asia/Bangkok'),
+  APP_TIMEZONE: z.string().default('Asia/Ho_Chi_Minh'),
   ENABLE_MOCK_AI_SCAN: z
     .string()
     .optional()
