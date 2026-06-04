@@ -6,6 +6,7 @@ export const caregiverLinkPermissionsSchema = z
     notifyBlockedAttempts: z.boolean().default(true),
     notifyMissedDose: z.boolean().default(true),
     notifyMedicationReminders: z.boolean().default(true),
+    notifyIntakeConfirmations: z.boolean().default(true),
     viewMedicationList: z.boolean().default(false),
     viewIntakeHistory: z.boolean().default(false),
   })

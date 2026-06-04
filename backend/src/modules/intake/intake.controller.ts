@@ -2,6 +2,7 @@ import type { NextFunction, Request, Response } from "express";
 
 import { parseGetListInput } from "../../shared/utils/list.js";
 import { sendSuccess } from "../../shared/utils/response.js";
+import { CaregiverRepository } from "../caregiver/caregiver.repository.js";
 import { MedicationRepository } from "../medication/medication.repository.js";
 import { ProfileRepository } from "../profile/profile.repository.js";
 import { SafetyRepository } from "../safety/safety.repository.js";
@@ -16,6 +17,7 @@ const intakeService = new IntakeService(
   new MedicationRepository(),
   new ScheduleRepository(),
   new SafetyRepository(),
+  new CaregiverRepository(),
 );
 
 class IntakeController {

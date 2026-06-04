@@ -89,7 +89,7 @@ message: Thuốc này không nằm trong kế hoạch uống thuốc hôm nay c�
 
 ### RULE 4 — Too early compared to scheduled time
 
-If current time is earlier than the nearest scheduled time by more than the allowed early window, warn.
+If the request includes `scheduledTime`, verify that the time exists in the selected schedule or active medication plan. If current time is earlier than the selected scheduled time by more than the allowed early window, warn. If it is later than the selected scheduled time by more than the allowed late window, warn.
 
 Suggested default:
 
@@ -99,9 +99,15 @@ allowedLateMinutes = 120
 ```
 
 ```txt
-code: TOO_EARLY_FOR_SCHEDULE
+code: TOO_EARLY
 severity: warning
 message: Hiện tại có vẻ chưa đến giờ uống thuốc này.
+```
+
+```txt
+code: DOSE_TIME_PASSED
+severity: warning
+message: Giờ uống thuốc theo lịch đã qua. Vui lòng kiểm tra lại trước khi xác nhận.
 ```
 
 ### RULE 5 — Too soon since last intake

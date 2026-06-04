@@ -266,7 +266,8 @@ export class CaregiverRepository {
       | "notifySafetyWarnings"
       | "notifyBlockedAttempts"
       | "notifyMissedDose"
-      | "notifyMedicationReminders",
+      | "notifyMedicationReminders"
+      | "notifyIntakeConfirmations",
   ): Promise<string[]> {
     const supabase = getSupabaseClient();
     const { data, error } = await supabase

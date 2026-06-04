@@ -4,7 +4,12 @@ import { ERROR_MESSAGE } from "../../shared/constants/error/error-messages.js";
 import { HTTP_STATUS } from "../../shared/constants/http/http-status.js";
 import { HttpError } from "../../shared/errors/http-error.js";
 import { getTodayDateString } from "../../shared/utils/date-time.js";
+import { CaregiverRepository } from "../caregiver/caregiver.repository.js";
+import { DeviceRepository } from "../device/device.repository.js";
 import { MedicationRepository } from "../medication/medication.repository.js";
+import { ExpoPushService } from "../notification/expo-push.service.js";
+import { NotificationRepository } from "../notification/notification.repository.js";
+import { NotificationService } from "../notification/notification.service.js";
 import { ProfileRepository } from "../profile/profile.repository.js";
 import { SafetyRepository } from "../safety/safety.repository.js";
 import { ScheduleRepository } from "../schedule/schedule.repository.js";
@@ -14,12 +19,20 @@ import type { CreateIntakeBody, IntakeListInput } from "./intake.schema.js";
 import type { IntakeEventDto } from "./intake.types.js";
 
 export class IntakeService {
+  private readonly notificationService = new NotificationService(
+    new NotificationRepository(),
+    new ProfileRepository(),
+    new DeviceRepository(),
+    new ExpoPushService(),
+  );
+
   constructor(
     private readonly intakeRepository: IntakeRepository,
     private readonly profileRepository: ProfileRepository,
     private readonly medicationRepository: MedicationRepository,
     private readonly scheduleRepository: ScheduleRepository,
     private readonly safetyRepository: SafetyRepository,
+    private readonly caregiverRepository: CaregiverRepository,
   ) {}
 
   async list(userId: string, input: IntakeListInput): Promise<IntakeEventDto[]> {
@@ -102,12 +115,65 @@ export class IntakeService {
       );
     }
 
+    if ((safetyCheck.medication_schedule_id ?? null) !== (payload.scheduleId ?? null)) {
+      throw new HttpError(
+        HTTP_STATUS.BAD_REQUEST,
+        ERROR_CODE.VALIDATION_ERROR,
+        "Safety check does not belong to the selected schedule",
+      );
+    }
+
+    if ((safetyCheck.scheduled_time ?? null) !== (payload.scheduledTime ?? null)) {
+      throw new HttpError(
+        HTTP_STATUS.BAD_REQUEST,
+        ERROR_CODE.VALIDATION_ERROR,
+        "Safety check does not belong to the selected scheduled time",
+      );
+    }
+
     if (!safetyCheck.can_confirm_intake || safetyCheck.result === "blocked") {
       throw new HttpError(
         HTTP_STATUS.CONFLICT,
         ERROR_CODE.INTAKE_NOT_ALLOWED,
         ERROR_MESSAGE.INTAKE_NOT_ALLOWED,
       );
+    }
+
+    const duplicateSafetyCheckIntake =
+      await this.intakeRepository.findTakenBySafetyCheckEventId(
+        profileId,
+        payload.safetyCheckEventId,
+      );
+    if (duplicateSafetyCheckIntake) {
+      throw new HttpError(
+        HTTP_STATUS.CONFLICT,
+        ERROR_CODE.INTAKE_NOT_ALLOWED,
+        "This safety check has already been used to confirm an intake",
+      );
+    }
+
+    if (payload.scheduleId && payload.scheduledTime) {
+      const effectiveTakenAt = payload.takenAt
+        ? new Date(payload.takenAt)
+        : new Date();
+      const localDate = getLocalDateString(effectiveTakenAt, env.APP_TIMEZONE);
+      const range = getLocalDateUtcRange(localDate, env.APP_TIMEZONE);
+      const duplicateScheduledIntake =
+        await this.intakeRepository.findTakenByScheduleTimeAndTakenAtRange({
+          profileId,
+          scheduleId: payload.scheduleId,
+          scheduledTime: payload.scheduledTime,
+          startIso: range.start.toISOString(),
+          endIso: range.end.toISOString(),
+        });
+
+      if (duplicateScheduledIntake) {
+        throw new HttpError(
+          HTTP_STATUS.CONFLICT,
+          ERROR_CODE.INTAKE_NOT_ALLOWED,
+          "This scheduled dose has already been confirmed for this day",
+        );
+      }
     }
 
     const warningSnapshot =
@@ -117,6 +183,17 @@ export class IntakeService {
       profileId,
       payload,
       warningSnapshot,
+    });
+
+    await this.notifyCaregiversOfIntake({
+      patientProfileId: profileId,
+      medicationName: medication.name,
+      intakeEventId: row.id,
+      userMedicationId: medication.id,
+      scheduleId: payload.scheduleId ?? null,
+      scheduledTime: payload.scheduledTime ?? null,
+      result: safetyCheck.result,
+      confirmedAfterWarning: safetyCheck.result === "warning",
     });
 
     return mapIntakeEventRowToDto(row);
@@ -134,6 +211,51 @@ export class IntakeService {
 
     return profile.id;
   }
+
+  private async notifyCaregiversOfIntake(input: {
+    patientProfileId: string;
+    medicationName: string;
+    intakeEventId: string;
+    userMedicationId: string;
+    scheduleId: string | null;
+    scheduledTime: string | null;
+    result: "allowed" | "warning" | "blocked";
+    confirmedAfterWarning: boolean;
+  }): Promise<void> {
+    const caregiverProfileIds =
+      await this.caregiverRepository.listAcceptedNotificationCaregiverProfileIds(
+        input.patientProfileId,
+        "notifyIntakeConfirmations",
+      );
+
+    await Promise.all(
+      caregiverProfileIds.map(async (recipientProfileId) => {
+        const notification =
+          await this.notificationService.createNotificationEvent({
+            patientProfileId: input.patientProfileId,
+            recipientProfileId,
+            eventType: input.confirmedAfterWarning
+              ? "intake_confirmed_after_warning"
+              : "intake_confirmed",
+            title: input.confirmedAfterWarning
+              ? "Medication taken after warning"
+              : "Medication intake confirmed",
+            body: `${input.medicationName} intake was confirmed.`,
+            payload: {
+              intakeEventId: input.intakeEventId,
+              userMedicationId: input.userMedicationId,
+              scheduleId: input.scheduleId,
+              scheduledTime: input.scheduledTime,
+              safetyResult: input.result,
+            },
+          });
+
+        await this.notificationService.sendNotificationEventById(
+          notification.id,
+        );
+      }),
+    );
+  }
 }
 
 function getLocalDateUtcRange(
@@ -144,6 +266,15 @@ function getLocalDateUtcRange(
   const end = new Date(start.getTime() + 24 * 60 * 60 * 1000);
 
   return { start, end };
+}
+
+function getLocalDateString(date: Date, timeZone: string): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(date);
 }
 
 function getUtcDateFromLocalDateTime(

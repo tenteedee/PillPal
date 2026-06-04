@@ -95,6 +95,8 @@ Request:
     "notifySafetyWarnings": true,
     "notifyBlockedAttempts": true,
     "notifyMissedDose": true,
+    "notifyMedicationReminders": true,
+    "notifyIntakeConfirmations": true,
     "viewMedicationList": false,
     "viewIntakeHistory": false
   }
@@ -122,6 +124,8 @@ Response items include:
     "notifySafetyWarnings": true,
     "notifyBlockedAttempts": true,
     "notifyMissedDose": true,
+    "notifyMedicationReminders": true,
+    "notifyIntakeConfirmations": true,
     "viewMedicationList": false,
     "viewIntakeHistory": false
   },
@@ -230,6 +234,17 @@ scan_unknown_medicine
 test
 ```
 
+Backend automatically creates notification events and sends Expo push for:
+
+- `medication_reminder`: patient and caregivers with medication reminder permission.
+- `safety_warning`: caregivers with safety warning permission.
+- `safety_blocked`: caregivers with blocked attempt permission.
+- `intake_confirmed`: caregivers with intake confirmation permission.
+- `intake_confirmed_after_warning`: caregivers with intake confirmation permission.
+- `scan_unknown_medicine`: caregivers with safety warning permission.
+
+`dose_missed` is reserved for a future missed-dose job/API and is not automatically emitted in this stage.
+
 Response:
 
 ```json
@@ -255,7 +270,7 @@ Response:
 }
 ```
 
-This stage stores notification intent/history only. Expo sending is added in a later stage.
+Notification rows store delivery history. Backend attempts Expo push delivery when the event is created by core workflows, or when `POST /notifications/:id/send` is called for a pending/failed notification.
 
 ## GET `/notifications/:id`
 
@@ -508,7 +523,7 @@ Request:
 
 `scheduleId` and `scheduledTime` are optional. When `scheduleId` is omitted or `null`, backend automatically loads active schedules for `userMedicationId` and treats those schedules as the expected medication plan.
 
-The `times` in medication schedules are reminder/UI references only. Safety timing is based on `minIntervalHours`, the last intake record, and today's intake count.
+Schedule `times` are still mainly reminders/UI references, but when the frontend sends `scheduledTime`, backend verifies that the time belongs to the selected/active schedule and warns when the check is clearly too early or too late.
 
 `source` values:
 
@@ -554,6 +569,9 @@ Important safety behavior:
 
 - If the medication has no active schedule, backend returns a warning with `SCHEDULE_NOT_FOUND` because the medicine is not part of the user's expected active plan.
 - If a provided `scheduleId` belongs to another medication, backend returns `SCHEDULE_MEDICATION_MISMATCH` as blocked.
+- If a provided `scheduledTime` is not part of the selected/active schedule, backend returns `NOT_SCHEDULED_TIME` as warning.
+- If the check is more than 30 minutes before the provided `scheduledTime`, backend returns `TOO_EARLY` as warning.
+- If the check is more than 120 minutes after the provided `scheduledTime`, backend returns `DOSE_TIME_PASSED` as warning.
 - If the medication was taken before the active plan's `minIntervalHours`, backend returns `MIN_INTERVAL_VIOLATION` as warning.
 - If today's taken count reaches the active plan's total daily dose limit, backend returns `DAILY_DOSE_LIMIT_REACHED` as blocked.
 - If `catalogId` is `null`, backend returns `MEDICATION_NOT_VERIFIED_IN_CATALOG` as warning.
@@ -595,8 +613,10 @@ Backend behavior:
 
 - Verifies the medication belongs to the current user.
 - Verifies the optional schedule belongs to the current user and selected medication.
-- Verifies the safety check belongs to the current user and selected medication.
+- Verifies the safety check belongs to the current user, selected medication, selected schedule, and selected scheduled time.
 - Rejects if the safety check result is `blocked` or `canConfirmIntake = false`.
+- Rejects if the same `safetyCheckEventId` was already used to create a taken intake.
+- Rejects if the same `scheduleId + scheduledTime` was already confirmed on the same local app day.
 - Creates an `intake_events` row with `status = taken`.
 - If the safety check result was `warning`, stores the warning reasons in `warningSnapshot`.
 
