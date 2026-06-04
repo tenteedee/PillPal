@@ -321,19 +321,41 @@ Request:
 
 # Upload
 
-## POST `/uploads/medication-image`
+## POST `/uploads`
 
-Upload medication image to Supabase Storage.
+Upload a static file to Supabase Storage and save its metadata to the `statics` table.
+
+Request:
+
+```txt
+multipart/form-data
+file=<binary>
+purpose=medication_image | prescription_image | general
+```
 
 Response:
 
 ```json
 {
   "data": {
-    "imageUrl": "https://..."
+    "staticId": "uuid",
+    "url": "https://...",
+    "bucket": "medication-images",
+    "path": "medication_image/user-id/timestamp-uuid.jpg",
+    "contentType": "image/jpeg",
+    "size": 12345,
+    "purpose": "medication_image",
+    "createdAt": "2026-06-04T00:00:00.000Z",
+    "updatedAt": null
   }
 }
 ```
+
+Later modules should receive `staticId` and resolve the file through the static module instead of accepting base64 payloads or trusting client-provided URLs.
+
+## GET `/uploads/:id`
+
+Return uploaded static file metadata for the current user.
 
 ---
 

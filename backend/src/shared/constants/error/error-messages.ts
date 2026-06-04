@@ -9,6 +9,8 @@ export const ERROR_MESSAGE = {
   MEDICATION_NOT_FOUND: "Medication not found",
   MEDICATION_CATALOG_NOT_FOUND: "Medication catalog not found",
   SCHEDULE_NOT_FOUND: "Schedule not found",
+  INVALID_UPLOAD_FILE: "Invalid upload file",
+  STATIC_FILE_NOT_FOUND: "Static file not found",
   AUTH_SIGNUP_FAILED: "Signup failed",
   AUTH_LOGIN_FAILED: "Login failed",
   AUTH_LOGOUT_FAILED: "Logout failed",
