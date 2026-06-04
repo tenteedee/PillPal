@@ -142,6 +142,60 @@ Revoke a pending or accepted caregiver-patient link. The current user must be ei
 
 ---
 
+# Devices
+
+## POST `/devices/push-token`
+
+Register or refresh the current user's Expo push token.
+
+Request:
+
+```json
+{
+  "expoPushToken": "ExpoPushToken[xxxxxxxxxxxxxxxxxxxxxx]",
+  "deviceId": "device-or-installation-id",
+  "platform": "ios"
+}
+```
+
+`platform` values:
+
+```txt
+ios
+android
+web
+```
+
+Response:
+
+```json
+{
+  "data": {
+    "id": "push-token-id",
+    "profileId": "profile-id",
+    "expoPushToken": "ExpoPushToken[xxxxxxxxxxxxxxxxxxxxxx]",
+    "deviceId": "device-or-installation-id",
+    "platform": "ios",
+    "isActive": true,
+    "createdAt": "2026-06-04T00:00:00.000Z",
+    "updatedAt": "2026-06-04T00:00:00.000Z",
+    "lastSeenAt": "2026-06-04T00:00:00.000Z"
+  }
+}
+```
+
+The endpoint is idempotent for the same profile/device id. Mobile may call it on app start or when Expo refreshes the token.
+
+## GET `/devices/push-tokens`
+
+List current user's active push tokens. Useful for debugging and device management.
+
+## DELETE `/devices/push-token/:id`
+
+Deactivate a push token belonging to the current user.
+
+---
+
 # Medication catalog
 
 ## GET `/medication-catalogs/search?q=...`

@@ -14,6 +14,7 @@ export const ERROR_MESSAGE = {
   AI_SCAN_FAILED: "AI scan failed",
   CAREGIVER_LINK_NOT_FOUND: "Caregiver link not found",
   CAREGIVER_LINK_ALREADY_EXISTS: "Caregiver link already exists",
+  PUSH_TOKEN_NOT_FOUND: "Push token not found",
   AUTH_SIGNUP_FAILED: "Signup failed",
   AUTH_LOGIN_FAILED: "Login failed",
   AUTH_LOGOUT_FAILED: "Logout failed",
