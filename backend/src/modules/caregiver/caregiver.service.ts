@@ -21,6 +21,7 @@ const DEFAULT_CAREGIVER_PERMISSIONS: CaregiverLinkPermissions = {
   notifySafetyWarnings: true,
   notifyBlockedAttempts: true,
   notifyMissedDose: true,
+  notifyMedicationReminders: true,
   viewMedicationList: false,
   viewIntakeHistory: false,
 };

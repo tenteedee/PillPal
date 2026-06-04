@@ -10,6 +10,7 @@ export type NotificationEventType =
   | "intake_confirmed"
   | "intake_confirmed_after_warning"
   | "dose_missed"
+  | "medication_reminder"
   | "scan_unknown_medicine"
   | "test";
 

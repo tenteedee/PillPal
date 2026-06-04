@@ -22,6 +22,13 @@ const envSchema = z.object({
     .transform((value) => value === 'true')
     .pipe(z.boolean())
     .catch(true),
+  ENABLE_SCHEDULE_REMINDER_JOB: z
+    .string()
+    .optional()
+    .transform((value) => value !== 'false')
+    .pipe(z.boolean())
+    .catch(true),
+  SCHEDULE_REMINDER_INTERVAL_MINUTES: z.coerce.number().int().min(1).default(30),
   DEMO_PROFILE_ID: z.string().uuid().optional(),
   ENABLE_DEMO_AUTH: z
     .string()

@@ -225,6 +225,7 @@ safety_warning
 intake_confirmed
 intake_confirmed_after_warning
 dose_missed
+medication_reminder
 scan_unknown_medicine
 test
 ```
@@ -416,11 +417,25 @@ Request:
 }
 ```
 
-## PATCH `/schedules/:id`
+## PUT `/schedules/:id`
 
-Update schedule.
+Replace schedule. Update APIs use `PUT` and must pass the full object.
 
-## PATCH `/schedules/:id/pause`
+Request:
+
+```json
+{
+  "userMedicationId": "uuid",
+  "doseAmount": "1 viên",
+  "times": ["08:00", "20:00"],
+  "timesPerDay": 2,
+  "minIntervalHours": 8,
+  "instruction": "Uống sau ăn",
+  "isActive": true
+}
+```
+
+## PUT `/schedules/:id/pause`
 
 Pause schedule.
 
