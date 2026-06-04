@@ -1,9 +1,14 @@
 import type {
   AiScanSource,
+  ConfirmMedicationScanResultDto,
+  MedicationScanConfirmationType,
   MedicationScanCandidateDto,
   MedicationScanExtraction,
   MedicationScanResultDto,
+  MedicationScanVerificationStatus,
 } from "./ai.types.js";
+import { mapUserMedicationRowToDto } from "../medication/medication.mapper.js";
+import type { UserMedicationRow } from "../medication/medication.types.js";
 
 export function mapMedicationScanResultToDto(input: {
   scanAttemptId: string;
@@ -21,5 +26,28 @@ export function mapMedicationScanResultToDto(input: {
     candidates: input.candidates,
     needsUserConfirmation: true,
     source: input.source,
+  };
+}
+
+export function mapConfirmMedicationScanResultToDto(input: {
+  scanAttemptId: string;
+  confirmationType: MedicationScanConfirmationType;
+  verificationStatus: MedicationScanVerificationStatus;
+  userMedication: UserMedicationRow;
+}): ConfirmMedicationScanResultDto {
+  const userMedication = mapUserMedicationRowToDto(input.userMedication);
+
+  return {
+    scanAttemptId: input.scanAttemptId,
+    confirmationType: input.confirmationType,
+    verificationStatus: input.verificationStatus,
+    userMedication,
+    nextAction: "run_safety_check",
+    safetyCheckPayload: {
+      userMedicationId: userMedication.id,
+      scheduleId: null,
+      scheduledTime: null,
+      source: "scan",
+    },
   };
 }

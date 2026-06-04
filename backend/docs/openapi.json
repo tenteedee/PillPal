@@ -2095,6 +2095,132 @@
           }
         }
       }
+    },
+    "/ai/scan-medication/{scanAttemptId}/confirm": {
+      "post": {
+        "tags": [
+          "AI"
+        ],
+        "summary": "Confirm a scanned medication and resolve it to a user medication",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "scanAttemptId",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "required": [
+                      "type",
+                      "userMedicationId"
+                    ],
+                    "properties": {
+                      "type": {
+                        "type": "string",
+                        "enum": [
+                          "existing_user_medication"
+                        ]
+                      },
+                      "userMedicationId": {
+                        "type": "string",
+                        "format": "uuid"
+                      }
+                    }
+                  },
+                  {
+                    "type": "object",
+                    "required": [
+                      "type",
+                      "catalogId"
+                    ],
+                    "properties": {
+                      "type": {
+                        "type": "string",
+                        "enum": [
+                          "catalog_medication"
+                        ]
+                      },
+                      "catalogId": {
+                        "type": "string",
+                        "format": "uuid"
+                      },
+                      "saveToUserMedications": {
+                        "type": "boolean",
+                        "enum": [
+                          true
+                        ]
+                      },
+                      "note": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  {
+                    "type": "object",
+                    "required": [
+                      "type",
+                      "name"
+                    ],
+                    "properties": {
+                      "type": {
+                        "type": "string",
+                        "enum": [
+                          "manual_unverified"
+                        ]
+                      },
+                      "name": {
+                        "type": "string"
+                      },
+                      "activeIngredient": {
+                        "type": "string"
+                      },
+                      "strength": {
+                        "type": "string"
+                      },
+                      "dosageForm": {
+                        "type": "string"
+                      },
+                      "note": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "400": {
+            "description": "Bad request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "404": {
+            "description": "Profile, scan attempt, medication, or catalog not found"
+          }
+        }
+      }
     }
   },
   "tags": []

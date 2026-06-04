@@ -44,6 +44,26 @@ export class AiRepository {
     return (data as MedicationCatalogRow[]) ?? [];
   }
 
+  async findCatalogById(catalogId: string): Promise<MedicationCatalogRow | null> {
+    const supabase = getSupabaseClient();
+    const { data, error } = await supabase
+      .from("medication_catalogs")
+      .select("*")
+      .eq("id", catalogId)
+      .maybeSingle<MedicationCatalogRow>();
+
+    if (error) {
+      throw new HttpError(
+        HTTP_STATUS.INTERNAL_SERVER_ERROR,
+        ERROR_CODE.MEDICATION_CATALOG_READ_FAILED,
+        `Failed to read medication catalog ${catalogId}`,
+        error,
+      );
+    }
+
+    return data;
+  }
+
   async findActiveUserMedicationsByCatalogIds(
     profileId: string,
     catalogIds: string[],
@@ -100,6 +120,60 @@ export class AiRepository {
         HTTP_STATUS.INTERNAL_SERVER_ERROR,
         ERROR_CODE.AI_SCAN_ATTEMPT_CREATE_FAILED,
         `Failed to save scan attempt for profile ${input.profileId}`,
+        error,
+      );
+    }
+
+    return data;
+  }
+
+  async findScanAttemptByIdAndProfileId(
+    scanAttemptId: string,
+    profileId: string,
+  ): Promise<ScanAttemptRow | null> {
+    const supabase = getSupabaseClient();
+    const { data, error } = await supabase
+      .from("scan_attempts")
+      .select("*")
+      .eq("id", scanAttemptId)
+      .eq("profile_id", profileId)
+      .maybeSingle<ScanAttemptRow>();
+
+    if (error) {
+      throw new HttpError(
+        HTTP_STATUS.INTERNAL_SERVER_ERROR,
+        ERROR_CODE.AI_SCAN_ATTEMPT_READ_FAILED,
+        `Failed to read scan attempt ${scanAttemptId}`,
+        error,
+      );
+    }
+
+    return data;
+  }
+
+  async confirmScanAttempt(input: {
+    scanAttemptId: string;
+    profileId: string;
+    userMedicationId: string;
+  }): Promise<ScanAttemptRow | null> {
+    const supabase = getSupabaseClient();
+    const { data, error } = await supabase
+      .from("scan_attempts")
+      .update({
+        confirmed_user_medication_id: input.userMedicationId,
+        status: "confirmed",
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", input.scanAttemptId)
+      .eq("profile_id", input.profileId)
+      .select("*")
+      .maybeSingle<ScanAttemptRow>();
+
+    if (error) {
+      throw new HttpError(
+        HTTP_STATUS.INTERNAL_SERVER_ERROR,
+        ERROR_CODE.AI_SCAN_ATTEMPT_UPDATE_FAILED,
+        `Failed to confirm scan attempt ${input.scanAttemptId}`,
         error,
       );
     }

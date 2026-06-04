@@ -10,9 +10,6 @@ import type {
   SafetySeverity,
 } from "./safety.types.js";
 
-const EARLY_WINDOW_MINUTES = 30;
-const LATE_WINDOW_MINUTES = 120;
-
 export function evaluateSafetyRules(input: SafetyRuleInput): SafetyRuleOutput {
   const reasons: SafetyReason[] = [];
 
@@ -74,40 +71,6 @@ function evaluateScheduleRules(
     reasons.push(reason("SCHEDULE_MEDICATION_MISMATCH", "blocked"));
   }
 
-  if (input.scheduledTime && !schedule.times.includes(input.scheduledTime)) {
-    reasons.push(
-      reason("NOT_SCHEDULED_TIME", "warning", {
-        scheduledTime: input.scheduledTime,
-        scheduleTimes: schedule.times,
-      }),
-    );
-  }
-
-  const targetTime = input.scheduledTime ?? schedule.times[0] ?? null;
-  if (targetTime) {
-    const nowMinutes = getLocalMinutes(input.now, input.timeZone);
-    const scheduledMinutes = parseTimeToMinutes(targetTime);
-    const diffMinutes = nowMinutes - scheduledMinutes;
-
-    if (diffMinutes < -EARLY_WINDOW_MINUTES) {
-      reasons.push(
-        reason("TOO_EARLY", "warning", {
-          scheduledTime: targetTime,
-          minutesUntilDose: Math.abs(diffMinutes),
-        }),
-      );
-    }
-
-    if (diffMinutes > LATE_WINDOW_MINUTES) {
-      reasons.push(
-        reason("DOSE_TIME_PASSED", "warning", {
-          scheduledTime: targetTime,
-          minutesLate: diffMinutes,
-        }),
-      );
-    }
-  }
-
   if (schedule.min_interval_hours && input.lastTakenAt) {
     const lastTakenAt = new Date(input.lastTakenAt);
     const hoursSinceLastTaken =
@@ -115,7 +78,7 @@ function evaluateScheduleRules(
 
     if (hoursSinceLastTaken < schedule.min_interval_hours) {
       reasons.push(
-        reason("MIN_INTERVAL_VIOLATION", "blocked", {
+        reason("MIN_INTERVAL_VIOLATION", "warning", {
           minIntervalHours: schedule.min_interval_hours,
           hoursSinceLastTaken: Number(hoursSinceLastTaken.toFixed(2)),
           lastTakenAt: input.lastTakenAt,
@@ -184,25 +147,4 @@ function reason(
 
 function normalizeText(value: string): string {
   return value.toLowerCase().trim();
-}
-
-function parseTimeToMinutes(time: string): number {
-  const [hour = "0", minute = "0"] = time.split(":");
-  return Number(hour) * 60 + Number(minute);
-}
-
-function getLocalMinutes(date: Date, timeZone: string): number {
-  const formatter = new Intl.DateTimeFormat("en-US", {
-    timeZone,
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  });
-  const parts = Object.fromEntries(
-    formatter.formatToParts(date).map((part) => [part.type, part.value]),
-  );
-  const hour = Number(parts.hour === "24" ? "0" : parts.hour);
-  const minute = Number(parts.minute);
-
-  return hour * 60 + minute;
 }

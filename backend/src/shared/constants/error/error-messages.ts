@@ -12,6 +12,7 @@ export const ERROR_MESSAGE = {
   INVALID_UPLOAD_FILE: "Invalid upload file",
   STATIC_FILE_NOT_FOUND: "Static file not found",
   AI_SCAN_FAILED: "AI scan failed",
+  AI_SCAN_ATTEMPT_NOT_FOUND: "Scan attempt not found",
   CAREGIVER_LINK_NOT_FOUND: "Caregiver link not found",
   CAREGIVER_LINK_ALREADY_EXISTS: "Caregiver link already exists",
   PUSH_TOKEN_NOT_FOUND: "Push token not found",

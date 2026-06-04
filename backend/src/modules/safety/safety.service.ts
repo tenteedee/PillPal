@@ -15,7 +15,7 @@ import { ScheduleRepository } from "../schedule/schedule.repository.js";
 import { evaluateSafetyRules } from "./safety.rules.js";
 import type { SafetyCheckBody } from "./safety.schema.js";
 import { SafetyRepository } from "./safety.repository.js";
-import { mapSafetyCheckEventRowToDto } from "./safetymapper.js";
+import { mapSafetyCheckEventRowToDto } from "./safety.mapper.js";
 import type { SafetyCheckDto } from "./safety.types.js";
 
 export class SafetyService {
@@ -35,7 +35,10 @@ export class SafetyService {
     private readonly caregiverRepository: CaregiverRepository,
   ) {}
 
-  async check(userId: string, payload: SafetyCheckBody): Promise<SafetyCheckDto> {
+  async check(
+    userId: string,
+    payload: SafetyCheckBody,
+  ): Promise<SafetyCheckDto> {
     const profile = await this.profileRepository.findByUserId(userId);
     if (!profile) {
       throw new HttpError(
@@ -59,7 +62,10 @@ export class SafetyService {
 
     const scheduleId = payload.scheduleId ?? null;
     const schedule = scheduleId
-      ? await this.scheduleRepository.findByIdAndProfileId(scheduleId, profile.id)
+      ? await this.scheduleRepository.findByIdAndProfileId(
+          scheduleId,
+          profile.id,
+        )
       : null;
 
     const now = new Date();
@@ -71,7 +77,10 @@ export class SafetyService {
         range.start.toISOString(),
         range.end.toISOString(),
       ),
-      this.intakeRepository.findLastTakenByMedication(profile.id, medication.id),
+      this.intakeRepository.findLastTakenByMedication(
+        profile.id,
+        medication.id,
+      ),
     ]);
 
     const ruleOutput = evaluateSafetyRules({
@@ -155,7 +164,9 @@ export class SafetyService {
             },
           });
 
-        await this.notificationService.sendNotificationEventById(notification.id);
+        await this.notificationService.sendNotificationEventById(
+          notification.id,
+        );
       }),
     );
   }

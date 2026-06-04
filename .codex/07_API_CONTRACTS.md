@@ -528,9 +528,14 @@ Response:
     "canConfirmIntake": true,
     "reasons": [
       {
-        "code": "TOO_EARLY",
+        "code": "MIN_INTERVAL_VIOLATION",
         "severity": "warning",
-        "message": "It is too early to take this scheduled dose."
+        "message": "This medication was taken too recently.",
+        "metadata": {
+          "minIntervalHours": 6,
+          "hoursSinceLastTaken": 2.5,
+          "lastTakenAt": "2026-06-04T01:30:00.000Z"
+        }
       }
     ],
     "suggestedAction": "Please confirm the information carefully. If unsure, ask a caregiver, pharmacist, or doctor.",
@@ -677,17 +682,100 @@ Response:
 
 ## POST `/ai/scan-medication/:scanAttemptId/confirm`
 
-Confirm selected medication candidate.
+Confirm the selected scan result and resolve it to a saved `user_medications` row.
+
+The AI scan endpoint only extracts candidates. The user must confirm one path here before the backend can run the deterministic safety rules.
+
+Supported confirmation types:
+
+```txt
+existing_user_medication
+catalog_medication
+manual_unverified
+```
+
+Use `existing_user_medication` when the scan candidate already has a `userMedicationId`.
 
 Request:
 
 ```json
 {
+  "type": "existing_user_medication",
   "userMedicationId": "uuid"
 }
 ```
 
-After confirmation, mobile should call `/safety/check`.
+Use `catalog_medication` when the scan matched a catalog medicine but the user has not saved it yet. Backend creates or reuses a `user_medications` row for that catalog item.
+
+Request:
+
+```json
+{
+  "type": "catalog_medication",
+  "catalogId": "uuid",
+  "saveToUserMedications": true,
+  "note": "Optional user note"
+}
+```
+
+Use `manual_unverified` when the medicine is not in our catalog, but the scan extracted structured information and the user confirms the packaging. Backend creates a `user_medications` row with `catalogId = null`; safety check will warn that this medicine is not verified in the local catalog.
+
+Request:
+
+```json
+{
+  "type": "manual_unverified",
+  "name": "Tiffy",
+  "activeIngredient": "Paracetamol",
+  "strength": "500mg",
+  "dosageForm": "Tablet",
+  "note": "Gifted by a friend, packaging confirmed by user"
+}
+```
+
+Response:
+
+```json
+{
+  "data": {
+    "scanAttemptId": "uuid",
+    "confirmationType": "manual_unverified",
+    "verificationStatus": "manual_unverified",
+    "userMedication": {
+      "id": "uuid",
+      "profileId": "uuid",
+      "catalogId": null,
+      "name": "Tiffy",
+      "activeIngredient": "Paracetamol",
+      "strength": "500mg",
+      "dosageForm": "Tablet",
+      "note": "Gifted by a friend, packaging confirmed by user",
+      "imageUrl": "https://...",
+      "isActive": true,
+      "createdAt": "2026-06-05T00:00:00.000Z",
+      "updatedAt": "2026-06-05T00:00:00.000Z"
+    },
+    "nextAction": "run_safety_check",
+    "safetyCheckPayload": {
+      "userMedicationId": "uuid",
+      "scheduleId": null,
+      "scheduledTime": null,
+      "source": "scan"
+    }
+  }
+}
+```
+
+`verificationStatus` values:
+
+```txt
+existing_user_medication
+catalog_verified
+manual_unverified
+already_confirmed
+```
+
+After confirmation, mobile should call `/safety/check` with `safetyCheckPayload`.
 
 ---
 

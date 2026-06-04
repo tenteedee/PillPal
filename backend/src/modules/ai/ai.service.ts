@@ -4,23 +4,33 @@ import { ERROR_CODE } from "../../shared/constants/error/error-codes.js";
 import { ERROR_MESSAGE } from "../../shared/constants/error/error-messages.js";
 import { HTTP_STATUS } from "../../shared/constants/http/http-status.js";
 import { HttpError } from "../../shared/errors/http-error.js";
+import { MedicationRepository } from "../medication/medication.repository.js";
 import type { MedicationCatalogRow } from "../medication-catalog/medication-catalog.types.js";
 import type { UserMedicationRow } from "../medication/medication.types.js";
 import { ProfileRepository } from "../profile/profile.repository.js";
 import { StaticRepository } from "../static/static.repository.js";
 import { StaticService } from "../static/static.service.js";
-import { mapMedicationScanResultToDto } from "./ai.mapper.js";
+import {
+  mapConfirmMedicationScanResultToDto,
+  mapMedicationScanResultToDto,
+} from "./ai.mapper.js";
 import {
   MEDICATION_SCAN_SYSTEM_PROMPT,
   MEDICATION_SCAN_USER_PROMPT,
 } from "./ai.prompts.js";
 import { AiRepository } from "./ai.repository.js";
-import type { ScanMedicationBody } from "./ai.schema.js";
+import type {
+  ConfirmMedicationScanBody,
+  ScanMedicationBody,
+} from "./ai.schema.js";
 import type {
   AiScanSource,
+  ConfirmMedicationScanResultDto,
   MedicationScanCandidateDto,
+  MedicationScanConfirmationType,
   MedicationScanExtraction,
   MedicationScanMatchStatus,
+  MedicationScanVerificationStatus,
   MedicationScanResultDto,
 } from "./ai.types.js";
 
@@ -40,6 +50,7 @@ export class AiService {
   constructor(
     private readonly aiRepository: AiRepository,
     private readonly profileRepository: ProfileRepository,
+    private readonly medicationRepository: MedicationRepository,
   ) {}
 
   private async getProfileIdByUserId(userId: string): Promise<string> {
@@ -102,6 +113,145 @@ export class AiService {
       candidates,
       source: extractionResult.source,
     });
+  }
+
+  async confirmMedicationScan(
+    userId: string,
+    scanAttemptId: string,
+    payload: ConfirmMedicationScanBody,
+  ): Promise<ConfirmMedicationScanResultDto> {
+    const profileId = await this.getProfileIdByUserId(userId);
+    const scanAttempt = await this.aiRepository.findScanAttemptByIdAndProfileId(
+      scanAttemptId,
+      profileId,
+    );
+
+    if (!scanAttempt) {
+      throw new HttpError(
+        HTTP_STATUS.NOT_FOUND,
+        ERROR_CODE.AI_SCAN_ATTEMPT_NOT_FOUND,
+        ERROR_MESSAGE.AI_SCAN_ATTEMPT_NOT_FOUND,
+      );
+    }
+
+    const confirmationType = payload.type;
+
+    if (scanAttempt.confirmed_user_medication_id) {
+      const confirmedMedication =
+        await this.medicationRepository.findByIdAndProfileId(
+          scanAttempt.confirmed_user_medication_id,
+          profileId,
+        );
+
+      if (confirmedMedication) {
+        return this.buildConfirmationResult({
+          scanAttemptId,
+          confirmationType,
+          verificationStatus: "already_confirmed",
+          userMedication: confirmedMedication,
+        });
+      }
+    }
+
+    const userMedication = await this.resolveConfirmedMedication(
+      profileId,
+      scanAttempt.image_url,
+      payload,
+    );
+
+    const confirmedScanAttempt = await this.aiRepository.confirmScanAttempt({
+      scanAttemptId,
+      profileId,
+      userMedicationId: userMedication.id,
+    });
+
+    if (!confirmedScanAttempt) {
+      throw new HttpError(
+        HTTP_STATUS.NOT_FOUND,
+        ERROR_CODE.AI_SCAN_ATTEMPT_NOT_FOUND,
+        ERROR_MESSAGE.AI_SCAN_ATTEMPT_NOT_FOUND,
+      );
+    }
+
+    return this.buildConfirmationResult({
+      scanAttemptId,
+      confirmationType,
+      verificationStatus: resolveVerificationStatus(payload),
+      userMedication,
+    });
+  }
+
+  private async resolveConfirmedMedication(
+    profileId: string,
+    scanImageUrl: string | null,
+    payload: ConfirmMedicationScanBody,
+  ): Promise<UserMedicationRow> {
+    if (payload.type === "existing_user_medication") {
+      const medication = await this.medicationRepository.findByIdAndProfileId(
+        payload.userMedicationId,
+        profileId,
+      );
+
+      if (!medication) {
+        throw new HttpError(
+          HTTP_STATUS.NOT_FOUND,
+          ERROR_CODE.MEDICATION_NOT_FOUND,
+          ERROR_MESSAGE.MEDICATION_NOT_FOUND,
+        );
+      }
+
+      return medication;
+    }
+
+    if (payload.type === "catalog_medication") {
+      const existingMedications =
+        await this.aiRepository.findActiveUserMedicationsByCatalogIds(profileId, [
+          payload.catalogId,
+        ]);
+
+      if (existingMedications[0]) {
+        return existingMedications[0];
+      }
+
+      const catalog = await this.aiRepository.findCatalogById(payload.catalogId);
+
+      if (!catalog) {
+        throw new HttpError(
+          HTTP_STATUS.NOT_FOUND,
+          ERROR_CODE.MEDICATION_CATALOG_NOT_FOUND,
+          ERROR_MESSAGE.MEDICATION_CATALOG_NOT_FOUND,
+        );
+      }
+
+      return this.medicationRepository.create(profileId, {
+        catalogId: catalog.id,
+        name: catalog.name,
+        activeIngredient: catalog.active_ingredient ?? undefined,
+        strength: catalog.strength ?? undefined,
+        dosageForm: catalog.dosage_form ?? undefined,
+        note: payload.note,
+        imageUrl: scanImageUrl ?? undefined,
+      });
+    }
+
+    return this.medicationRepository.create(profileId, {
+      catalogId: null,
+      name: payload.name,
+      activeIngredient: payload.activeIngredient,
+      strength: payload.strength,
+      dosageForm: payload.dosageForm,
+      note: payload.note ?? "Created from an unverified medication scan.",
+      imageUrl: scanImageUrl ?? undefined,
+    });
+  }
+
+  private buildConfirmationResult(input: {
+    scanAttemptId: string;
+    confirmationType: MedicationScanConfirmationType;
+    verificationStatus: MedicationScanVerificationStatus;
+    userMedication: UserMedicationRow;
+  }): ConfirmMedicationScanResultDto {
+    return mapConfirmMedicationScanResultToDto(input);
   }
 
   private async extractMedication(imageUrl: string): Promise<{
@@ -308,6 +458,20 @@ function buildMatchReason(
     : "Matched medication catalog";
 
   return `${prefix} by ${fields.join(", ") || "visible package data"}.`;
+}
+
+function resolveVerificationStatus(
+  payload: ConfirmMedicationScanBody,
+): MedicationScanVerificationStatus {
+  if (payload.type === "existing_user_medication") {
+    return "existing_user_medication";
+  }
+
+  if (payload.type === "catalog_medication") {
+    return "catalog_verified";
+  }
+
+  return "manual_unverified";
 }
 
 function getErrorMessage(error: unknown): string {
