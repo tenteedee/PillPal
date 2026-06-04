@@ -566,39 +566,363 @@ Important safety behavior:
 
 Confirm intake.
 
+This endpoint must be called after `/safety/check`. It records that the user actually took the medication and becomes the source of truth for later `minIntervalHours`, last-taken, and daily dose checks.
+
 Request:
 
 ```json
 {
   "userMedicationId": "uuid",
-  "scheduleId": "uuid-or-null",
-  "scheduledTime": "08:00",
+  "scheduleId": null,
+  "scheduledTime": null,
   "doseAmount": "1 viên",
   "safetyCheckEventId": "uuid",
   "confirmedAfterWarning": false
 }
 ```
 
-Backend must reject if related safety check is `blocked`.
+Optional request fields:
 
-## GET `/intakes/history?date=YYYY-MM-DD`
+```txt
+scheduleId
+scheduledTime
+doseAmount
+confirmedAfterWarning
+takenAt
+```
 
-Daily intake history.
+Backend behavior:
 
-## POST `/intakes/missed`
+- Verifies the medication belongs to the current user.
+- Verifies the optional schedule belongs to the current user and selected medication.
+- Verifies the safety check belongs to the current user and selected medication.
+- Rejects if the safety check result is `blocked` or `canConfirmIntake = false`.
+- Creates an `intake_events` row with `status = taken`.
+- If the safety check result was `warning`, stores the warning reasons in `warningSnapshot`.
 
-Mark dose missed.
+Response:
+
+```json
+{
+  "data": {
+    "id": "uuid",
+    "profileId": "uuid",
+    "userMedicationId": "uuid",
+    "scheduleId": null,
+    "scheduledTime": null,
+    "doseAmount": "1 viên",
+    "takenAt": "2026-06-05T10:00:00.000Z",
+    "status": "taken",
+    "confirmedBy": "user",
+    "safetyCheckEventId": "uuid",
+    "warningSnapshot": [],
+    "confirmedAfterWarning": false,
+    "createdAt": "2026-06-05T10:00:00.000Z"
+  },
+  "message": "Created"
+}
+```
+
+## GET `/intakes`
+
+List current user's intake history.
+
+Query:
+
+```txt
+?userMedicationId=uuid&scheduleId=uuid&status=taken&takenFrom=2026-06-05T00:00:00.000Z&takenTo=2026-06-06T00:00:00.000Z&page=1&limit=20
+```
+
+Filters are optional.
+
+`status` values:
+
+```txt
+taken
+missed
+skipped
+blocked_attempt
+```
+
+Response:
+
+```json
+{
+  "data": [
+    {
+      "id": "uuid",
+      "profileId": "uuid",
+      "userMedicationId": "uuid",
+      "scheduleId": "uuid-or-null",
+      "scheduledTime": "08:00",
+      "doseAmount": "1 viên",
+      "takenAt": "2026-06-05T01:00:00.000Z",
+      "status": "taken",
+      "confirmedBy": "user",
+      "safetyCheckEventId": "uuid",
+      "warningSnapshot": [],
+      "confirmedAfterWarning": false,
+      "createdAt": "2026-06-05T01:00:00.000Z"
+    }
+  ]
+}
+```
+
+## GET `/intakes/today`
+
+List today's intake events for the current user using backend `APP_TIMEZONE`.
+
+This is the simplest endpoint for mobile history widgets and daily plan refresh after confirming an intake.
+
+Missed/skipped dose APIs are not implemented in this stage. For the MVP, missed state is derived by daily plan from schedule time and absence of a `taken` intake event.
+
+---
+
+# Medicine lookups
+
+These records run and audit the unknown-medicine agentic workflow.
+
+When `/ai/scan-medication` finds no catalog candidates, backend creates a `medicine_lookup_attempt` with `status = pending`.
+
+When the user confirms a scan as `manual_unverified`, backend links the saved `user_medications` row to that lookup and moves it to `status = needs_admin_review`.
+
+## GET `/medicine-lookups/sources`
+
+List configured lookup sources.
+
+Query:
+
+```txt
+?sourceType=distributor&active=true&page=1&limit=20
+```
+
+`sourceType` values:
+
+```txt
+distributor
+administration
+general_web
+```
+
+Initial seeded sources:
+
+```txt
+Nhà thuốc Long Châu -> distributor, requiredWorkerCount 1
+Pharmacity -> distributor, requiredWorkerCount 1
+Nhà thuốc An Khang -> distributor, requiredWorkerCount 1
+Cục Quản lý Dược Việt Nam -> administration, requiredWorkerCount 1
+Reputable web search -> general_web, requiredWorkerCount 3
+```
+
+Worker counts are DB-driven. Stage 5 orchestrator must load active sources by `sourceType` and dispatch `requiredWorkerCount` workers for each source. The supervisor can evaluate a stage only after all dispatched workers for that stage have returned structured output, structured error, or structured timeout.
+
+Lookup workers use the OpenAI SDK to extract structured evidence from fetched source content. Each concrete agent owns a specific prompt:
+
+```txt
+OpenAIMedicineLookupAgent
+DistributorLookupAgent
+GeneralWebLookupAgent
+AdministrationComparisonAgent
+MedicineLookupSupervisorAgent
+```
+
+If `OPENAI_API_KEY` is missing or a model call fails, the worker stores deterministic fallback evidence with `analysisSource = "fallback"`.
+
+Source responsibility:
+
+- `distributor`: trusted pharmacy/distributor evidence. If found here, Stage 5 can move directly to candidate confirmation because Vietnamese distributors are expected to sell administration-authorized medicines.
+- `general_web`: fallback evidence when distributor workers cannot find the pill. Use reputable sites only.
+- `administration`: Vietnam region authorization check. Used after general-web discovery.
+
+Response:
+
+```json
+{
+  "data": [
+    {
+      "id": "uuid",
+      "name": "Nhà thuốc Long Châu",
+      "baseUrl": "https://nhathuoclongchau.com.vn/",
+      "sourceType": "distributor",
+      "requiredWorkerCount": 1,
+      "isActive": true,
+      "createdAt": "2026-06-05T00:00:00.000Z",
+      "updatedAt": "2026-06-05T00:00:00.000Z"
+    }
+  ]
+}
+```
+
+## GET `/medicine-lookups`
+
+List current user's unknown medicine lookup attempts.
+
+Query:
+
+```txt
+?status=pending&queryName=Tiffy&page=1&limit=20
+```
+
+`status` values:
+
+```txt
+pending
+in_progress
+needs_admin_review
+verified
+rejected
+failed
+```
+
+Response:
+
+```json
+{
+  "data": [
+    {
+      "id": "uuid",
+      "profileId": "uuid",
+      "scanAttemptId": "uuid",
+      "staticId": "uuid",
+      "userMedicationId": "uuid-or-null",
+      "status": "needs_admin_review",
+      "queryName": "Tiffy",
+      "queryActiveIngredient": "Paracetamol",
+      "queryManufacturer": null,
+      "extractedData": {},
+      "createdAt": "2026-06-05T00:00:00.000Z",
+      "updatedAt": "2026-06-05T00:00:00.000Z"
+    }
+  ]
+}
+```
+
+## POST `/medicine-lookups/:id/run`
+
+Run the unknown medicine lookup orchestrator for the current user's lookup attempt.
+
+Execution rules:
+
+- Source groups are loaded from active `medicine_data_sources`.
+- For each source, backend dispatches `requiredWorkerCount` workers.
+- Workers inside the same stage may run in parallel.
+- Mission stages remain sequential:
+
+```txt
+distributor -> supervisor -> general_web -> supervisor -> administration -> supervisor
+```
+
+- Supervisor evaluates a stage only after every dispatched worker in that stage returns structured output, structured error, or structured timeout.
+- If distributor evidence is a clear match, backend returns early and skips general web plus administration.
+- If distributor evidence is insufficient, backend runs general web workers.
+- If general web finds a probable candidate, backend runs administration comparison.
+- New medicines are not saved to `medication_catalogs`.
+- A verified external medicine may later be saved only into the current user's `user_medications`.
+- If scan extraction already proves the product is not for human medication use, such as packaging text saying "for veterinary use only", backend rejects the lookup deterministically before running external workers.
+
+Response:
+
+Same shape as `GET /medicine-lookups/:id`, with updated `status`, `evidence`, and `externalCandidates`.
+
+Possible outcomes:
+
+```txt
+verified
+needs_admin_review
+rejected
+failed
+```
+
+Notes:
+
+- Distributor clear match saves an external candidate with `verificationStatus = externally_verified`.
+- General web match plus administration match saves an external candidate with `verificationStatus = externally_verified`.
+- General web match without clear administration match saves an external candidate with `verificationStatus = needs_admin_review`.
+- No reliable evidence marks the lookup as `failed` or `needs_admin_review`.
+
+## POST `/medicine-lookups/:id/save-medication`
+
+Save a verified external medicine lookup candidate into the current user's medication list.
+
+This endpoint is the Stage 6 bridge from unknown-medicine verification back into the normal medication flow. It does **not** save the medicine to `medication_catalogs`.
+
+Rules:
+
+- Lookup must belong to the current user.
+- Lookup must have `status = verified`.
+- Candidate must have `authorizationStatus = authorized`.
+- Candidate must have `verificationStatus = externally_verified`.
+- If `externalCandidateId` is omitted, backend uses the first saveable candidate for the lookup.
+- If the lookup is already linked to a `userMedicationId`, backend returns the existing medication instead of creating a duplicate.
+- Safety checks treat this saved medication as externally verified, even though `catalogId` remains `null`.
+- After saving, frontend may create a schedule with the existing `POST /schedules` endpoint using the returned `medication.id`.
 
 Request:
 
 ```json
 {
-  "userMedicationId": "uuid",
-  "scheduleId": "uuid",
-  "scheduledTime": "20:00",
-  "date": "2026-05-31"
+  "externalCandidateId": "uuid-optional",
+  "note": "Bought while traveling. Optional user note."
 }
 ```
+
+Response:
+
+```json
+{
+  "data": {
+    "lookup": {
+      "id": "uuid",
+      "userMedicationId": "created-user-medication-id",
+      "status": "verified",
+      "externalCandidates": []
+    },
+    "medication": {
+      "id": "created-user-medication-id",
+      "profileId": "uuid",
+      "catalogId": null,
+      "name": "Tiffy",
+      "activeIngredient": "Paracetamol",
+      "strength": "500mg",
+      "dosageForm": "tablet",
+      "note": "Bought while traveling. Optional user note.",
+      "imageUrl": null,
+      "isActive": true,
+      "createdAt": "2026-06-05T00:00:00.000Z",
+      "updatedAt": "2026-06-05T00:00:00.000Z"
+    }
+  }
+}
+```
+
+## GET `/medicine-lookups/:id`
+
+Get lookup detail, including worker evidence and external medication candidates.
+
+Response:
+
+```json
+{
+  "data": {
+    "id": "uuid",
+    "profileId": "uuid",
+    "scanAttemptId": "uuid",
+    "staticId": "uuid",
+    "userMedicationId": "uuid-or-null",
+    "status": "needs_admin_review",
+    "queryName": "Tiffy",
+    "queryActiveIngredient": "Paracetamol",
+    "queryManufacturer": null,
+    "extractedData": {},
+    "createdAt": "2026-06-05T00:00:00.000Z",
+    "updatedAt": "2026-06-05T00:00:00.000Z",
+    "evidence": [],
+    "externalCandidates": []
+  }
+}
+```
+
+`POST /medicine-lookups/:id/run` populates `evidence` and `externalCandidates`.
 
 ---
 
@@ -648,6 +972,8 @@ Return uploaded static file metadata for the current user.
 
 Pass uploaded static file id. Returns candidates only.
 
+If no catalog/user-medication candidates are found, backend creates a medicine lookup attempt and returns it as `medicineLookup`.
+
 Request:
 
 ```json
@@ -687,6 +1013,38 @@ Response:
         "reason": "Matched an active user medication by name, active ingredient, strength."
       }
     ],
+    "medicineLookup": null,
+    "needsUserConfirmation": true,
+    "source": "openai"
+  }
+}
+```
+
+When no candidate is found:
+
+```json
+{
+  "data": {
+    "scanAttemptId": "uuid",
+    "staticId": "uuid",
+    "imageUrl": "https://...",
+    "extractedData": {
+      "name": "Tiffy",
+      "activeIngredient": "Paracetamol",
+      "strength": "500mg",
+      "dosageForm": "Tablet",
+      "manufacturer": null,
+      "visibleText": ["Tiffy", "500mg"],
+      "confidence": 0.82
+    },
+    "candidates": [],
+    "medicineLookup": {
+      "id": "uuid",
+      "status": "pending",
+      "queryName": "Tiffy",
+      "queryActiveIngredient": "Paracetamol",
+      "queryManufacturer": null
+    },
     "needsUserConfirmation": true,
     "source": "openai"
   }
@@ -754,6 +1112,13 @@ Response:
     "scanAttemptId": "uuid",
     "confirmationType": "manual_unverified",
     "verificationStatus": "manual_unverified",
+    "medicineLookup": {
+      "id": "uuid",
+      "status": "needs_admin_review",
+      "queryName": "Tiffy",
+      "queryActiveIngredient": "Paracetamol",
+      "queryManufacturer": null
+    },
     "userMedication": {
       "id": "uuid",
       "profileId": "uuid",

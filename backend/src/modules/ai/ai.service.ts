@@ -6,6 +6,8 @@ import { HTTP_STATUS } from "../../shared/constants/http/http-status.js";
 import { HttpError } from "../../shared/errors/http-error.js";
 import { MedicationRepository } from "../medication/medication.repository.js";
 import type { MedicationCatalogRow } from "../medication-catalog/medication-catalog.types.js";
+import { MedicineLookupService } from "../medicine-lookup/medicine-lookup.service.js";
+import type { MedicineLookupAttemptDto } from "../medicine-lookup/medicine-lookup.types.js";
 import type { UserMedicationRow } from "../medication/medication.types.js";
 import { ProfileRepository } from "../profile/profile.repository.js";
 import { StaticRepository } from "../static/static.repository.js";
@@ -51,6 +53,7 @@ export class AiService {
     private readonly aiRepository: AiRepository,
     private readonly profileRepository: ProfileRepository,
     private readonly medicationRepository: MedicationRepository,
+    private readonly medicineLookupService: MedicineLookupService,
   ) {}
 
   private async getProfileIdByUserId(userId: string): Promise<string> {
@@ -105,12 +108,24 @@ export class AiService {
       candidates,
     });
 
+    const medicineLookup =
+      candidates.length === 0
+        ? await this.medicineLookupService.ensureLookupForScanAttempt({
+            profileId,
+            scanAttemptId: scanAttempt.id,
+            staticId: payload.staticId,
+            status: "pending",
+            extractedData: extractionResult.extraction,
+          })
+        : null;
+
     return mapMedicationScanResultToDto({
       scanAttemptId: scanAttempt.id,
       staticId: payload.staticId,
       imageUrl: staticFile.url,
       extractedData: extractionResult.extraction,
       candidates,
+      medicineLookup,
       source: extractionResult.source,
     });
   }
@@ -173,10 +188,26 @@ export class AiService {
       );
     }
 
+    const medicineLookup =
+      payload.type === "manual_unverified"
+        ? await this.medicineLookupService.ensureLookupForScanAttempt({
+            profileId,
+            scanAttemptId,
+            staticId: scanAttempt.static_id,
+            userMedicationId: userMedication.id,
+            status: "needs_admin_review",
+            extractedData: mergeExtractionWithManualConfirmation(
+              scanAttempt.extracted_data,
+              payload,
+            ),
+          })
+        : null;
+
     return this.buildConfirmationResult({
       scanAttemptId,
       confirmationType,
       verificationStatus: resolveVerificationStatus(payload),
+      medicineLookup,
       userMedication,
     });
   }
@@ -249,6 +280,7 @@ export class AiService {
     scanAttemptId: string;
     confirmationType: MedicationScanConfirmationType;
     verificationStatus: MedicationScanVerificationStatus;
+    medicineLookup?: MedicineLookupAttemptDto | null;
     userMedication: UserMedicationRow;
   }): ConfirmMedicationScanResultDto {
     return mapConfirmMedicationScanResultToDto(input);
@@ -472,6 +504,29 @@ function resolveVerificationStatus(
   }
 
   return "manual_unverified";
+}
+
+function mergeExtractionWithManualConfirmation(
+  extractedData: unknown,
+  payload: ConfirmMedicationScanBody,
+): unknown {
+  if (payload.type !== "manual_unverified") {
+    return extractedData;
+  }
+
+  const base =
+    extractedData && typeof extractedData === "object"
+      ? (extractedData as Record<string, unknown>)
+      : {};
+
+  return {
+    ...base,
+    name: payload.name,
+    activeIngredient: payload.activeIngredient ?? base.activeIngredient ?? null,
+    strength: payload.strength ?? base.strength ?? null,
+    dosageForm: payload.dosageForm ?? base.dosageForm ?? null,
+    manualConfirmationNote: payload.note ?? null,
+  };
 }
 
 function getErrorMessage(error: unknown): string {

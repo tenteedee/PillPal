@@ -10,6 +10,30 @@ import type {
 } from "./safety.types.js";
 
 export class SafetyRepository {
+  async findByIdAndProfileId(
+    safetyCheckEventId: string,
+    profileId: string,
+  ): Promise<SafetyCheckEventRow | null> {
+    const supabase = getSupabaseClient();
+    const { data, error } = await supabase
+      .from("safety_check_events")
+      .select("*")
+      .eq("id", safetyCheckEventId)
+      .eq("profile_id", profileId)
+      .maybeSingle<SafetyCheckEventRow>();
+
+    if (error) {
+      throw new HttpError(
+        HTTP_STATUS.INTERNAL_SERVER_ERROR,
+        ERROR_CODE.SAFETY_CHECK_READ_FAILED,
+        `Failed to read safety check event ${safetyCheckEventId}`,
+        error,
+      );
+    }
+
+    return data;
+  }
+
   async createSafetyCheckEvent(input: {
     profileId: string;
     userMedicationId: string;

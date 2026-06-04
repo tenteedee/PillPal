@@ -47,6 +47,37 @@ The orchestrator receives the scan output, dispatches specialized workers, merge
 
 Workers must return structured output so the data can be stored, reused, reviewed by admins, and fed into deterministic safety checks.
 
+Workers use the OpenAI SDK to interpret fetched source content into structured evidence. Each concrete worker agent owns its own prompt and task rules:
+
+```txt
+OpenAIMedicineLookupAgent -> OpenAI SDK runner used by concrete workers
+DistributorLookupAgent -> distributor/pharmacy product identity evidence
+GeneralWebLookupAgent -> reputable broader web medicine identity evidence
+AdministrationComparisonAgent -> Vietnam administration authorization comparison
+MedicineLookupSupervisorAgent -> stage-level evaluation and next-step decision
+```
+
+If OpenAI is not configured or a worker's model call fails, the backend falls back to deterministic text matching and marks the stored worker output with `analysisSource = "fallback"`.
+
+The workflow is sequential by mission stage, but workers inside the same stage may run in parallel.
+
+Stage order:
+
+```txt
+receive data
+-> distributor worker group
+-> supervisor evaluation
+-> general web worker group
+-> supervisor evaluation
+-> administration comparison worker group
+-> supervisor evaluation
+-> output
+```
+
+The orchestrator must not hard-code worker counts. It must load active rows from `medicine_data_sources` by `source_type`, then dispatch workers according to each row's `required_worker_count`.
+
+The supervisor may evaluate a stage only after every worker dispatched for that stage has returned structured output, failed with a structured error, or timed out with a structured timeout result.
+
 ## Step 1 — Scan Agent
 
 The scan agent extracts visible package information.
@@ -74,17 +105,21 @@ Structured output should include:
 
 The scan agent only extracts candidates. It does not approve intake.
 
-## Step 2 — Vietnam Pharmacy Workers
+## Step 2 — Distributor Workers
 
-Use trusted Vietnam pharmacy sources as supporting evidence.
+Use trusted Vietnam distributor/pharmacy sources as supporting evidence.
 
-Initial allowed pharmacy sources:
+Initial allowed distributor sources:
 
 ```txt
 https://nhathuoclongchau.com.vn/
 https://www.pharmacity.vn/
 https://www.nhathuocankhang.com/
 ```
+
+The orchestrator must load active `distributor` sources from `medicine_data_sources`. For each distributor source, dispatch the number of workers defined by that source's `required_worker_count`.
+
+Workers in the distributor stage may run in parallel. The supervisor can evaluate distributor results only after all distributor workers have returned structured outputs.
 
 These workers search by:
 
@@ -95,11 +130,17 @@ These workers search by:
 - distributor/importer
 - registration number if available
 
-Pharmacy sites are useful for product matching and retail evidence, but they are not the final authority for Vietnam authorization.
+Distributor sites are useful for product matching and retail evidence. For the MVP workflow, if a medicine is clearly found on trusted Vietnam distributor sources, the orchestrator may return the structured candidate to the next function without separately running the administration comparison, because these distributors are expected to carry administration-authorized products.
+
+The worker still must store source metadata, matched fields, timestamp, and confidence. It must not decide whether the user can safely take the medicine.
 
 ## Step 3 — General Web Evidence Workers
 
-Use broader web search when pharmacy workers cannot find enough evidence, especially for foreign medicines.
+Use broader web search only when distributor workers cannot find enough evidence, especially for foreign medicines.
+
+The orchestrator must load active `general_web` sources from `medicine_data_sources`. For each general web source, dispatch the number of workers defined by that source's `required_worker_count`.
+
+Workers in the general web stage may run in parallel. The supervisor can evaluate general web results only after all general web workers have returned structured outputs.
 
 Search inputs may include:
 
@@ -123,7 +164,7 @@ Only reputable sources should be trusted for evidence:
 
 Do not use random blogs, forums, or social posts as decisive evidence.
 
-## Step 4 — Vietnam Drug Administration Worker
+## Step 4 — Vietnam Administration Comparison Worker
 
 Check Vietnam Drug Administration registration data:
 
@@ -131,7 +172,13 @@ Check Vietnam Drug Administration registration data:
 https://dichvucong.dav.gov.vn/congbothuoc
 ```
 
-This worker searches by:
+This worker is required when the pill is found through general web evidence instead of trusted distributor evidence.
+
+The orchestrator must load active `administration` sources from `medicine_data_sources`. For each administration source, dispatch the number of workers defined by that source's `required_worker_count`.
+
+The supervisor can evaluate administration results only after all administration workers have returned structured outputs.
+
+The worker searches by:
 
 - medicine name
 - active ingredient
@@ -140,7 +187,7 @@ This worker searches by:
 - manufacturer
 - registration/license number
 
-DAV evidence is important for Vietnam authorization, but still store source metadata and timestamp because registry data may change.
+Administration evidence is the regional authorization check for Vietnam. Store source metadata and timestamp because registry data may change.
 
 ## Step 5 — Orchestrator Evidence Merge
 
@@ -165,7 +212,7 @@ Suggested output:
     {
       "sourceName": "string",
       "sourceUrl": "string",
-      "sourceType": "pharmacy | regulator | manufacturer | medical_reference | general_web",
+      "sourceType": "distributor | administration | manufacturer | medical_reference | general_web",
       "trustLevel": "high | medium | low",
       "matchedFields": ["string"],
       "extractedData": {},
@@ -241,9 +288,9 @@ DAILY_DOSE_LIMIT_REACHED -> blocked
 
 ## Suggested Future Tables
 
-### `pharmacy_sources`
+### `medicine_data_sources`
 
-Admin-managed allowed source list.
+Admin-managed allowed source list, split by responsibility.
 
 Suggested fields:
 
@@ -252,10 +299,27 @@ id
 name
 base_url
 source_type
+required_worker_count
 trust_level
 is_active
 created_at
 updated_at
+```
+
+`source_type` values:
+
+```txt
+distributor
+administration
+general_web
+```
+
+Worker-count rules:
+
+```txt
+Do not hard-code stage worker counts.
+For each active source, dispatch source.required_worker_count workers.
+Supervisor evaluation waits for all workers in the current stage.
 ```
 
 ### `medicine_lookup_attempts`

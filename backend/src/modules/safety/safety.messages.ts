@@ -15,7 +15,7 @@ export const SAFETY_REASON_MESSAGES: Record<SafetyReasonCode, string> = {
   MISSING_ACTIVE_INGREDIENT:
     "The active ingredient is missing, so allergy checking may be incomplete.",
   MEDICATION_NOT_VERIFIED_IN_CATALOG:
-    "This medication is not linked to the verified catalog.",
+    "This medication is not linked to the verified catalog or a verified external lookup.",
 };
 
 export const SAFETY_SUGGESTED_ACTION: Record<SafetyResult, string | null> = {

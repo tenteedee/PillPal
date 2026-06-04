@@ -1,9 +1,4 @@
-import {
-  AuthApiError,
-  createClient,
-  type SupabaseClient,
-  type User,
-} from "@supabase/supabase-js";
+import { createClient, type SupabaseClient, type User } from "@supabase/supabase-js";
 
 import { env } from "./env.js";
 
@@ -35,11 +30,26 @@ export async function verifySupabaseAccessToken(
   const { data, error } = await client.auth.getUser(accessToken);
 
   if (error) {
-    if (error instanceof AuthApiError) {
+    if (isSupabaseAuthVerificationError(error)) {
       return null;
     }
+
     throw error;
   }
 
   return data.user ?? null;
+}
+
+function isSupabaseAuthVerificationError(error: unknown): boolean {
+  if (!error || typeof error !== "object") {
+    return false;
+  }
+
+  const record = error as Record<string, unknown>;
+  return (
+    record.name === "AuthApiError" ||
+    record.name === "AuthSessionMissingError" ||
+    record.status === 400 ||
+    record.status === 401
+  );
 }
