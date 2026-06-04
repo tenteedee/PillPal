@@ -23,7 +23,12 @@ import { uploadRouter } from "./modules/static/static.routes.js";
 
 const app = express();
 
-app.use(cors());
+app.use(
+  cors({
+    origin: true,
+    credentials: true,
+  }),
+);
 app.use(
   morgan(env.NODE_ENV === "production" ? "combined" : "dev", {
     skip: (req: Request) => req.path === "/api/v1/health",
