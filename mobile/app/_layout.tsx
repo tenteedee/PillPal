@@ -1,15 +1,37 @@
 import { ThemeProvider } from '@react-navigation/native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { Stack } from 'expo-router';
+import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import 'react-native-reanimated';
 
 import { palette } from '@/src/theme/pillpal';
+import { useAuthStore } from '@/src/store/auth';
 
 export const unstable_settings = {
   anchor: '(tabs)',
 };
+
+function AuthGuard() {
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const segments = useSegments();
+  const router = useRouter();
+
+  useEffect(() => {
+    // Check if the current segment is the login screen
+    const isLoginScreen = segments[0] === 'login';
+
+    if (!isAuthenticated && !isLoginScreen) {
+      // Redirect to the login screen if not authenticated
+      router.replace('/login');
+    } else if (isAuthenticated && isLoginScreen) {
+      // Redirect to the home screen if authenticated and trying to access login
+      router.replace('/(tabs)');
+    }
+  }, [isAuthenticated, segments, router]);
+
+  return null;
+}
 
 export default function RootLayout() {
   const queryClient = useMemo(() => new QueryClient(), []);
@@ -34,11 +56,14 @@ export default function RootLayout() {
             heavy: { fontFamily: 'System', fontWeight: '900' },
           },
         }}>
+        <AuthGuard />
         <Stack screenOptions={{ contentStyle: { backgroundColor: palette.canvas } }}>
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+          <Stack.Screen name="login" options={{ headerShown: false, gestureEnabled: false }} />
         </Stack>
         <StatusBar style="dark" />
       </ThemeProvider>
     </QueryClientProvider>
   );
 }
+

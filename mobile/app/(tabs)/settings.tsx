@@ -3,10 +3,24 @@ import { StyleSheet, Text, View } from 'react-native';
 import { AccentCard, AppButton, GlassCard, SectionTitle, StatusChip } from '@/src/components/PillPalUI';
 import { PillPalScreen } from '@/src/components/PillPalScreen';
 import { palette, radius, spacing, typography } from '@/src/theme/pillpal';
+import { useAuthStore } from '@/src/store/auth';
+import { apiFetch } from '@/src/api/client';
 
 const accessibilityModes = ['Bình thường', 'Người lớn tuổi', 'Thị lực yếu', 'Đơn giản'];
 
 export default function SettingsScreen() {
+  const logoutStore = useAuthStore((state) => state.logout);
+
+  const handleLogout = async () => {
+    try {
+      await apiFetch('/auth/logout', { method: 'POST' });
+    } catch (e) {
+      console.warn('Backend logout failed or session expired:', e);
+    } finally {
+      logoutStore();
+    }
+  };
+
   return (
     <PillPalScreen
       eyebrow="Settings"
@@ -36,6 +50,14 @@ export default function SettingsScreen() {
         <AppButton label="Cập nhật hồ sơ" icon="person-circle" style={styles.action} />
         <AppButton label="Người hỗ trợ" icon="call" variant="light" style={styles.action} />
       </View>
+      
+      <AppButton
+        label="Đăng xuất"
+        icon="log-out"
+        variant="danger"
+        onPress={handleLogout}
+      />
+
 
       <SectionTitle title="An toàn y tế" />
       <View style={styles.cards}>
