@@ -6,6 +6,7 @@ import { useEffect, useMemo } from 'react';
 import 'react-native-reanimated';
 
 import { apiFetch } from '@/src/api/client';
+import { usePushTokenRegistration } from '@/src/hooks/usePushTokenRegistration';
 import { useAuthStore } from '@/src/store/auth';
 import { palette } from '@/src/theme/pillpal';
 
@@ -65,6 +66,9 @@ function AuthGuard() {
 
 export default function RootLayout() {
   const queryClient = useMemo(() => new QueryClient(), []);
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+
+  usePushTokenRegistration(isAuthenticated);
 
   return (
     <QueryClientProvider client={queryClient}>

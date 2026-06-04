@@ -4,8 +4,11 @@ import React from 'react';
 
 import { HapticTab } from '@/components/haptic-tab';
 import { palette, radius } from '@/src/theme/pillpal';
+import { getAccessibilitySettings, useAccessibilityStore } from '@/src/store/accessibility';
 
 export default function TabLayout() {
+  const settings = getAccessibilitySettings(useAccessibilityStore((state) => state.mode));
+
   return (
     <Tabs
       screenOptions={{
@@ -14,7 +17,7 @@ export default function TabLayout() {
         tabBarActiveTintColor: palette.primary,
         tabBarInactiveTintColor: palette.muted,
         tabBarLabelStyle: {
-          fontSize: 11,
+          fontSize: settings.tabFontSize,
           fontWeight: '800',
           letterSpacing: 0,
           paddingTop: 2,
@@ -24,17 +27,19 @@ export default function TabLayout() {
           left: 18,
           right: 18,
           bottom: 18,
-          height: 78,
-          paddingTop: 9,
-          paddingBottom: 12,
+          height: settings.tabBarHeight,
+          paddingTop: settings.highContrast ? 11 : 9,
+          paddingBottom: settings.highContrast ? 14 : 12,
           borderRadius: radius.lg,
           borderTopWidth: 0,
-          backgroundColor: palette.surface,
+          backgroundColor: settings.highContrast ? palette.white : palette.surface,
           shadowColor: palette.ink,
           shadowOpacity: 0.12,
           shadowOffset: { width: 0, height: 10 },
           shadowRadius: 24,
           elevation: 10,
+          borderWidth: settings.highContrast ? 2 : 0,
+          borderColor: settings.highContrast ? palette.primary : 'transparent',
         },
       }}>
       <Tabs.Screen
@@ -42,7 +47,7 @@ export default function TabLayout() {
         options={{
           title: 'Quét',
           tabBarIcon: ({ color, focused }) => (
-            <Ionicons name={focused ? 'scan' : 'scan-outline'} size={25} color={color} />
+            <Ionicons name={focused ? 'scan' : 'scan-outline'} size={settings.highContrast ? 28 : 25} color={color} />
           ),
         }}
       />
@@ -51,7 +56,7 @@ export default function TabLayout() {
         options={{
           title: 'Lịch',
           tabBarIcon: ({ color, focused }) => (
-            <Ionicons name={focused ? 'calendar' : 'calendar-outline'} size={24} color={color} />
+            <Ionicons name={focused ? 'calendar' : 'calendar-outline'} size={settings.highContrast ? 27 : 24} color={color} />
           ),
         }}
       />
@@ -60,7 +65,7 @@ export default function TabLayout() {
         options={{
           title: 'Gia đình',
           tabBarIcon: ({ color, focused }) => (
-            <Ionicons name={focused ? 'people' : 'people-outline'} size={24} color={color} />
+            <Ionicons name={focused ? 'people' : 'people-outline'} size={settings.highContrast ? 27 : 24} color={color} />
           ),
         }}
       />
@@ -69,7 +74,7 @@ export default function TabLayout() {
         options={{
           title: 'Cá nhân',
           tabBarIcon: ({ color, focused }) => (
-            <Ionicons name={focused ? 'medkit' : 'medkit-outline'} size={24} color={color} />
+            <Ionicons name={focused ? 'medkit' : 'medkit-outline'} size={settings.highContrast ? 27 : 24} color={color} />
           ),
         }}
       />
@@ -78,7 +83,7 @@ export default function TabLayout() {
         options={{
           title: 'Cài đặt',
           tabBarIcon: ({ color, focused }) => (
-            <Ionicons name={focused ? 'settings' : 'settings-outline'} size={24} color={color} />
+            <Ionicons name={focused ? 'settings' : 'settings-outline'} size={settings.highContrast ? 27 : 24} color={color} />
           ),
         }}
       />

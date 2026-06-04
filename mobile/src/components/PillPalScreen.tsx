@@ -3,6 +3,12 @@ import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { palette, radius, spacing, typography } from '@/src/theme/pillpal';
+import {
+  getAccessibilitySettings,
+  scaleFont,
+  scaleSpace,
+  useAccessibilityStore,
+} from '@/src/store/accessibility';
 
 type PillPalScreenProps = PropsWithChildren<{
   eyebrow?: string;
@@ -20,13 +26,54 @@ export function PillPalScreen({
   scroll = true,
   children,
 }: PillPalScreenProps) {
+  const settings = getAccessibilitySettings(useAccessibilityStore((state) => state.mode));
+
   const content = (
-    <View style={styles.content}>
-      <View style={styles.header}>
+    <View
+      style={[
+        styles.content,
+        {
+          paddingHorizontal: settings.screenPadding,
+          paddingTop: scaleSpace(spacing.lg, settings),
+          gap: scaleSpace(spacing.lg, settings),
+        },
+      ]}>
+      <View
+        style={[
+          styles.header,
+          {
+            minHeight: settings.simplified ? 98 : Math.round(130 * settings.spacingScale),
+            gap: scaleSpace(spacing.lg, settings),
+          },
+        ]}>
         <View style={styles.headerCopy}>
-          {eyebrow ? <Text style={styles.eyebrow}>{eyebrow}</Text> : null}
-          <Text style={styles.title}>{title}</Text>
-          {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
+          {eyebrow && !settings.simplified ? (
+            <Text style={[styles.eyebrow, { fontSize: scaleFont(typography.eyebrow, settings) }]}>
+              {eyebrow}
+            </Text>
+          ) : null}
+          <Text
+            style={[
+              styles.title,
+              {
+                fontSize: scaleFont(typography.title, settings),
+                lineHeight: scaleFont(36, settings),
+              },
+            ]}>
+            {title}
+          </Text>
+          {subtitle && settings.showSecondaryText ? (
+            <Text
+              style={[
+                styles.subtitle,
+                {
+                  fontSize: scaleFont(typography.body, settings),
+                  lineHeight: scaleFont(23, settings),
+                },
+              ]}>
+              {subtitle}
+            </Text>
+          ) : null}
         </View>
         {rightSlot ? <View style={styles.rightSlot}>{rightSlot}</View> : null}
       </View>
@@ -35,11 +82,22 @@ export function PillPalScreen({
   );
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={['top']}>
-      <View style={styles.backdrop} />
+    <SafeAreaView
+      style={[styles.safeArea, settings.highContrast && styles.safeAreaContrast]}
+      edges={['top']}>
+      <View
+        style={[
+          styles.backdrop,
+          { height: settings.simplified ? 180 : Math.round(220 * settings.spacingScale) },
+          settings.highContrast && styles.backdropContrast,
+        ]}
+      />
       {scroll ? (
         <ScrollView
-          contentContainerStyle={styles.scrollContent}
+          contentContainerStyle={[
+            styles.scrollContent,
+            { paddingBottom: settings.tabBarHeight + 44 },
+          ]}
           showsVerticalScrollIndicator={false}>
           {content}
         </ScrollView>
@@ -55,6 +113,9 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: palette.canvas,
   },
+  safeAreaContrast: {
+    backgroundColor: palette.white,
+  },
   backdrop: {
     position: 'absolute',
     top: 0,
@@ -64,6 +125,11 @@ const styles = StyleSheet.create({
     backgroundColor: palette.canvasStrong,
     borderBottomLeftRadius: radius.xl,
     borderBottomRightRadius: radius.xl,
+  },
+  backdropContrast: {
+    backgroundColor: palette.surface,
+    borderBottomWidth: 2,
+    borderColor: palette.primary,
   },
   scrollContent: {
     paddingBottom: 120,
