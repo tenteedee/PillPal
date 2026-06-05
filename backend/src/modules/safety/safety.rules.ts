@@ -67,7 +67,9 @@ function evaluateScheduledTimeRules(
   const activeSchedules = input.activeMedicationSchedules.filter(
     (schedule) => schedule.user_medication_id === input.medication.id,
   );
-  const schedulesToCheck = selectedSchedule ? [selectedSchedule] : activeSchedules;
+  const schedulesToCheck = selectedSchedule
+    ? [selectedSchedule]
+    : activeSchedules;
   const scheduledTimeExists = schedulesToCheck.some((schedule) =>
     schedule.times.includes(input.scheduledTime as string),
   );

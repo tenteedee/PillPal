@@ -14,6 +14,7 @@ import { dailyPlanRouter } from "./modules/daily-plan/daily-plan.routes.js";
 import { deviceRouter } from "./modules/device/device.routes.js";
 import { intakeRouter } from "./modules/intake/intake.routes.js";
 import { medicationRouter } from "./modules/medication/medication.routes.js";
+import { medicineLookupRouter } from "./modules/medicine-lookup/medicine-lookup.routes.js";
 import { medicationCatalogRouter } from "./modules/medication-catalog/medication-catalog.routes.js";
 import { medicineLookupRouter } from "./modules/medicine-lookup/medicine-lookup.routes.js";
 import { notificationRouter } from "./modules/notification/notification.routes.js";

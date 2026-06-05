@@ -7,6 +7,8 @@ import { HttpError } from "../../shared/errors/http-error.js";
 import { CaregiverRepository } from "../caregiver/caregiver.repository.js";
 import { DeviceRepository } from "../device/device.repository.js";
 import { MedicationRepository } from "../medication/medication.repository.js";
+import { MedicineLookupRepository } from "../medicine-lookup/medicine-lookup.repository.js";
+import { MedicineLookupService } from "../medicine-lookup/medicine-lookup.service.js";
 import type { MedicationCatalogRow } from "../medication-catalog/medication-catalog.types.js";
 import { MedicineLookupService } from "../medicine-lookup/medicine-lookup.service.js";
 import type { MedicineLookupAttemptDto } from "../medicine-lookup/medicine-lookup.types.js";
@@ -119,6 +121,20 @@ export class AiService {
       aiResult: extractionResult.rawResult,
       candidates,
     });
+    const medicineLookupService = new MedicineLookupService(
+      new MedicineLookupRepository(),
+      this.profileRepository,
+      this.medicationRepository,
+    );
+    const medicineLookup = candidates.length === 0
+      ? await medicineLookupService.createPendingFromScan({
+          profileId,
+          scanAttemptId: scanAttempt.id,
+          staticId: payload.staticId,
+          imageUrl: staticFile.url,
+          extraction: extractionResult.extraction,
+        })
+      : null;
 
     const medicineLookup =
       candidates.length === 0
@@ -149,6 +165,7 @@ export class AiService {
       candidates,
       medicineLookup,
       source: extractionResult.source,
+      medicineLookup,
     });
   }
 
