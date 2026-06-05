@@ -8,6 +8,7 @@ import type {
   MedicationScanResultDto,
   MedicationScanVerificationStatus,
 } from "./ai.types.js";
+import type { MedicineLookupDto } from "../medicine-lookup/medicine-lookup.types.js";
 import { mapUserMedicationRowToDto } from "../medication/medication.mapper.js";
 import type { UserMedicationRow } from "../medication/medication.types.js";
 import type { MedicineLookupAttemptDto } from "../medicine-lookup/medicine-lookup.types.js";
@@ -20,6 +21,7 @@ export function mapMedicationScanResultToDto(input: {
   candidates: MedicationScanCandidateDto[];
   medicineLookup?: MedicineLookupAttemptDto | null;
   source: AiScanSource;
+  medicineLookup?: MedicineLookupDto | null;
 }): MedicationScanResultDto {
   return {
     scanAttemptId: input.scanAttemptId,
@@ -32,6 +34,9 @@ export function mapMedicationScanResultToDto(input: {
       : null,
     needsUserConfirmation: true,
     source: input.source,
+    ...(input.medicineLookup !== undefined
+      ? { medicineLookup: input.medicineLookup }
+      : {}),
   };
 }
 

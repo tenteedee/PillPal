@@ -103,6 +103,13 @@ export class SafetyService {
       );
     }
 
+    const verifiedExternalLookup = medication.catalog_id
+      ? null
+      : await new MedicineLookupRepository().findVerifiedByUserMedicationId(
+          profile.id,
+          medication.id,
+        );
+
     const ruleOutput = evaluateSafetyRules({
       now,
       timeZone: env.APP_TIMEZONE,
@@ -114,6 +121,7 @@ export class SafetyService {
       scheduledTime: payload.scheduledTime ?? null,
       todayTakenCount: todayIntakes.length,
       lastTakenAt: lastIntake?.taken_at ?? null,
+      medicationVerifiedByExternalLookup: Boolean(verifiedExternalLookup),
     });
 
     const event = await this.safetyRepository.createSafetyCheckEvent({

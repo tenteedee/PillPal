@@ -305,14 +305,6 @@ export default function LoginScreen() {
               )}
             </Pressable>
 
-            {!settings.simplified ? (
-              <View style={styles.demoTip}>
-                <Ionicons name="shield-checkmark" size={scaleFont(18, settings)} color={palette.primary} />
-                <Text style={[styles.demoTipText, { fontSize: scaleFont(typography.small, settings) }]}>
-                  Mỗi request sẽ gửi kèm cookie và token phiên nếu có.
-                </Text>
-              </View>
-            ) : null}
           </View>
         </ScrollView>
       </KeyboardAvoidingView>

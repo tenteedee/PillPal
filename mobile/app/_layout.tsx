@@ -6,6 +6,7 @@ import { useEffect, useMemo } from 'react';
 import 'react-native-reanimated';
 
 import { apiFetch } from '@/src/api/client';
+import { useNotificationRouting } from '@/src/hooks/useNotificationRouting';
 import { usePushTokenRegistration } from '@/src/hooks/usePushTokenRegistration';
 import { useAuthStore } from '@/src/store/auth';
 import { palette } from '@/src/theme/pillpal';
@@ -69,6 +70,7 @@ export default function RootLayout() {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
 
   usePushTokenRegistration(isAuthenticated);
+  useNotificationRouting(isAuthenticated);
 
   return (
     <QueryClientProvider client={queryClient}>
@@ -94,6 +96,7 @@ export default function RootLayout() {
         <Stack screenOptions={{ contentStyle: { backgroundColor: palette.canvas } }}>
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
           <Stack.Screen name="login" options={{ headerShown: false, gestureEnabled: false }} />
+          <Stack.Screen name="notifications/[id]" options={{ headerShown: false }} />
         </Stack>
         <StatusBar style="dark" />
       </ThemeProvider>

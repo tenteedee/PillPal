@@ -60,6 +60,10 @@ export async function listNotifications(input: NotificationListInput = {}): Prom
   return apiFetch<NotificationEvent[]>('/notifications' + buildQuery(input));
 }
 
+export async function getNotificationById(id: string): Promise<NotificationEvent> {
+  return apiFetch<NotificationEvent>('/notifications/' + id);
+}
+
 export async function sendNotificationById(id: string): Promise<ExpoPushSendResult> {
   return apiFetch<ExpoPushSendResult>('/notifications/' + id + '/send', {
     method: 'POST',
