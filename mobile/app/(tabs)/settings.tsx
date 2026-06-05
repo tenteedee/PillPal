@@ -1,18 +1,29 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { useEffect, useState, type ComponentProps } from "react";
+import { useCallback, useEffect, useState, type ComponentProps } from "react";
 import {
   ActivityIndicator,
+  Alert,
   Linking,
   Modal,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from "react-native";
 
 import { apiFetch } from "@/src/api/client";
-import { CaregiverForPatient, listCaregivers } from "@/src/api/caregiver.api";
+import {
+  acceptCaregiverInvitation,
+  CaregiverForPatient,
+  inviteCaregiver,
+  listCaregiverInvitations,
+  listCaregiverPatients,
+  listCaregivers,
+  PatientForCaregiver,
+  revokeCaregiverLink,
+} from "@/src/api/caregiver.api";
 import {
   listNotifications,
   NotificationEvent,
@@ -38,6 +49,11 @@ import { palette, radius, spacing, typography } from "@/src/theme/pillpal";
 
 type IconName = ComponentProps<typeof Ionicons>["name"];
 type ModeOption = AccessibilityModeOption & { icon: IconName };
+type CaregiverSettingsRole = "caregiver" | "patient";
+type InviteCaregiverForm = {
+  caregiverProfileId: string;
+  relationship: string;
+};
 
 const accessibilityModes: ModeOption[] = accessibilityModeOptions.map(
   (mode) => ({
@@ -46,13 +62,28 @@ const accessibilityModes: ModeOption[] = accessibilityModeOptions.map(
   }),
 );
 
+const defaultInviteCaregiverForm: InviteCaregiverForm = {
+  caregiverProfileId: "",
+  relationship: "",
+};
+
 export default function SettingsScreen() {
   const logoutStore = useAuthStore((state) => state.logout);
+  const [caregiverRole, setCaregiverRole] =
+    useState<CaregiverSettingsRole>("caregiver");
   const [caregivers, setCaregivers] = useState<CaregiverForPatient[]>([]);
+  const [caregiverPatients, setCaregiverPatients] = useState<PatientForCaregiver[]>([]);
+  const [caregiverInvitations, setCaregiverInvitations] =
+    useState<PatientForCaregiver[]>([]);
   const [notifications, setNotifications] = useState<NotificationEvent[]>([]);
   const [selectedCaregiver, setSelectedCaregiver] =
     useState<CaregiverForPatient | null>(null);
+  const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
+  const [inviteForm, setInviteForm] = useState<InviteCaregiverForm>(
+    defaultInviteCaregiverForm,
+  );
   const [isLoadingCaregivers, setIsLoadingCaregivers] = useState(true);
+  const [isCaregiverSubmitting, setIsCaregiverSubmitting] = useState(false);
   const [caregiverError, setCaregiverError] = useState<string | null>(null);
 
   const selectedMode = useAccessibilityStore((state) => state.mode);
@@ -62,34 +93,53 @@ export default function SettingsScreen() {
     accessibilityModes[0];
   const activeSettings = getAccessibilitySettings(selectedMode);
 
-  useEffect(() => {
-    let cancelled = false;
+  const loadCaregiverSection = useCallback(
+    async (role: CaregiverSettingsRole = caregiverRole) => {
+      setIsLoadingCaregivers(true);
+      setCaregiverError(null);
 
-    setIsLoadingCaregivers(true);
-    setCaregiverError(null);
+      try {
+        if (role === "caregiver") {
+          const [patients, invitations] = await Promise.all([
+            listCaregiverPatients(),
+            listCaregiverInvitations(),
+          ]);
+          setCaregiverPatients(patients ?? []);
+          setCaregiverInvitations(invitations ?? []);
+          return;
+        }
 
-    Promise.all([
-      listCaregivers(),
-      listNotifications({ page: 1, limit: 3 }).catch(
-        () => [] as NotificationEvent[],
-      ),
-    ])
-      .then(([nextCaregivers, nextNotifications]) => {
-        if (cancelled) return;
-        setCaregivers(nextCaregivers);
-        setNotifications(nextNotifications);
-      })
-      .catch((error) => {
-        if (cancelled) return;
+        const nextCaregivers = await listCaregivers();
+        setCaregivers(nextCaregivers ?? []);
+      } catch (error) {
         setCaregiverError(
           error instanceof Error
             ? error.message
-            : "Không tải được danh sách người hỗ trợ.",
+            : "Không tải được dữ liệu người hỗ trợ.",
         );
-      })
-      .finally(() => {
+      } finally {
+        setIsLoadingCaregivers(false);
+      }
+    },
+    [caregiverRole],
+  );
+
+  useEffect(() => {
+    void loadCaregiverSection(caregiverRole);
+  }, [caregiverRole, loadCaregiverSection]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    listNotifications({ page: 1, limit: 3 })
+      .then((nextNotifications) => {
         if (!cancelled) {
-          setIsLoadingCaregivers(false);
+          setNotifications(nextNotifications);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setNotifications([]);
         }
       });
 
@@ -97,6 +147,89 @@ export default function SettingsScreen() {
       cancelled = true;
     };
   }, []);
+
+  const handleInviteCaregiver = async () => {
+    const caregiverProfileId = inviteForm.caregiverProfileId.trim();
+    const relationship = inviteForm.relationship.trim();
+
+    if (!caregiverProfileId) {
+      Alert.alert(
+        "Thiếu thông tin",
+        "Vui lòng nhập caregiver profile id để gửi lời mời.",
+      );
+      return;
+    }
+
+    setIsCaregiverSubmitting(true);
+    try {
+      await inviteCaregiver({
+        caregiverProfileId,
+        relationship: relationship || null,
+        permissions: {
+          notifySafetyWarnings: true,
+          notifyBlockedAttempts: true,
+          notifyMissedDose: true,
+          notifyMedicationReminders: true,
+          notifyIntakeConfirmations: true,
+          viewMedicationList: false,
+          viewIntakeHistory: false,
+        },
+      });
+      setInviteForm(defaultInviteCaregiverForm);
+      setIsInviteModalOpen(false);
+      await loadCaregiverSection("patient");
+    } catch (error) {
+      Alert.alert(
+        "Không gửi được invite",
+        error instanceof Error ? error.message : "Vui lòng thử lại.",
+      );
+    } finally {
+      setIsCaregiverSubmitting(false);
+    }
+  };
+
+  const handleAcceptCaregiverInvitation = async (linkId: string) => {
+    setIsCaregiverSubmitting(true);
+    try {
+      await acceptCaregiverInvitation(linkId);
+      await loadCaregiverSection("caregiver");
+    } catch (error) {
+      Alert.alert(
+        "Không chấp nhận được lời mời",
+        error instanceof Error ? error.message : "Vui lòng thử lại.",
+      );
+    } finally {
+      setIsCaregiverSubmitting(false);
+    }
+  };
+
+  const handleRevokeCaregiverLink = (linkId: string) => {
+    Alert.alert(
+      "Hủy kết nối",
+      "Bạn có chắc muốn hủy kết nối caregiver/patient này?",
+      [
+        { text: "Giữ lại", style: "cancel" },
+        {
+          text: "Hủy kết nối",
+          style: "destructive",
+          onPress: async () => {
+            setIsCaregiverSubmitting(true);
+            try {
+              await revokeCaregiverLink(linkId);
+              await loadCaregiverSection(caregiverRole);
+            } catch (error) {
+              Alert.alert(
+                "Không hủy được kết nối",
+                error instanceof Error ? error.message : "Vui lòng thử lại.",
+              );
+            } finally {
+              setIsCaregiverSubmitting(false);
+            }
+          },
+        },
+      ],
+    );
+  };
 
   const handleLogout = async () => {
     try {
@@ -116,23 +249,125 @@ export default function SettingsScreen() {
         subtitle="Thiết lập người hỗ trợ và chế độ hiển thị phù hợp."
       >
         <SectionTitle
-          title="Người có thể liên hệ"
-          action={
-            caregivers.length ? caregivers.length + " liên hệ" : undefined
-          }
+          title={caregiverRole === "caregiver" ? "Người hỗ trợ" : "Bệnh nhân"}
         />
+        <View style={styles.caregiverRoleSwitch}>
+          <CaregiverRoleButton
+            active={caregiverRole === "caregiver"}
+            icon="people"
+            label="Người hỗ trợ"
+            onPress={() => setCaregiverRole("caregiver")}
+          />
+          <CaregiverRoleButton
+            active={caregiverRole === "patient"}
+            icon="person"
+            label="Bệnh nhân"
+            onPress={() => setCaregiverRole("patient")}
+          />
+        </View>
+
+        {caregiverRole === "patient" ? (
+          <View style={styles.inviteActionRow}>
+            <AppButton
+              label="Mời"
+              icon="person-add"
+              onPress={() => setIsInviteModalOpen(true)}
+              style={styles.inviteActionButton}
+            />
+            <StatusChip
+              label={caregivers.length + " liên hệ"}
+              icon="shield-checkmark"
+              tone="primary"
+              style={styles.inviteStatusChip}
+            />
+          </View>
+        ) : null}
+
         {isLoadingCaregivers ? (
           <GlassCard style={styles.loadingCard}>
             <ActivityIndicator color={palette.primary} />
             <Text style={styles.loadingText}>
-              Đang tải danh sách người hỗ trợ...
+              {caregiverRole === "caregiver"
+                ? "Đang tải dữ liệu..."
+                : "Đang tải dữ liệu..."}
             </Text>
           </GlassCard>
         ) : caregiverError ? (
           <GlassCard style={styles.errorCard}>
             <Ionicons name="warning" size={22} color={palette.rose} />
             <Text style={styles.errorText}>{caregiverError}</Text>
+            <AppButton
+              label="Thử lại"
+              icon="refresh"
+              variant="light"
+              onPress={() => loadCaregiverSection(caregiverRole)}
+              style={styles.retryButton}
+            />
           </GlassCard>
+        ) : caregiverRole === "caregiver" ? (
+          <View style={styles.caregiverFlowGroup}>
+            <View style={styles.caregiverMetricRow}>
+              <StatusChip
+                label={caregiverPatients.length + " bệnh nhân"}
+                icon="people-circle"
+                tone="primary"
+                style={styles.caregiverMetric}
+              />
+              <StatusChip
+                label={caregiverInvitations.length + " lời mời"}
+                icon="mail-unread"
+                tone="amber"
+                style={styles.caregiverMetric}
+              />
+            </View>
+
+            <SectionTitle
+              title="Lời mời làm người hỗ trợ"
+              action=""
+            />
+            {caregiverInvitations.length ? (
+              <View style={styles.caregiverList}>
+                {caregiverInvitations.map((invitation) => (
+                  <PatientLinkCard
+                    key={invitation.id}
+                    link={invitation}
+                    isPending
+                    isSubmitting={isCaregiverSubmitting}
+                    onAccept={() => handleAcceptCaregiverInvitation(invitation.id)}
+                    onRevoke={() => handleRevokeCaregiverLink(invitation.id)}
+                  />
+                ))}
+              </View>
+            ) : (
+              <EmptyState
+                icon="mail-open"
+                title="Không có lời mời mới"
+                body="Khi bệnh nhân gửi yêu cầu, lời mời sẽ xuất hiện ở đây để bạn chấp nhận."
+              />
+            )}
+
+            <SectionTitle
+              title="Bệnh nhân đang theo dõi"
+              action=""
+            />
+            {caregiverPatients.length ? (
+              <View style={styles.caregiverList}>
+                {caregiverPatients.map((patientLink) => (
+                  <PatientLinkCard
+                    key={patientLink.id}
+                    link={patientLink}
+                    onRevoke={() => handleRevokeCaregiverLink(patientLink.id)}
+                  />
+                ))}
+              </View>
+            ) : (
+              <EmptyState
+                icon="people-circle"
+                title="Chưa có bệnh nhân đã kết nối"
+                body="Sau khi bạn chấp nhận lời mời, bệnh nhân sẽ xuất hiện ở đây."
+              />
+            )}
+          </View>
         ) : caregivers.length ? (
           <View style={styles.caregiverList}>
             {caregivers.map((caregiver) => (
@@ -141,6 +376,7 @@ export default function SettingsScreen() {
                 caregiver={caregiver}
                 settings={activeSettings}
                 onPress={() => setSelectedCaregiver(caregiver)}
+                onRevoke={() => handleRevokeCaregiverLink(caregiver.id)}
               />
             ))}
           </View>
@@ -148,7 +384,9 @@ export default function SettingsScreen() {
           <EmptyState
             icon="people-circle"
             title="Chưa có người hỗ trợ"
-            body="Khi bạn mời caregiver và họ chấp nhận, họ sẽ xuất hiện ở đây để nhận cảnh báo an toàn."
+            body='Nhấn nút "Mời người hỗ trợ" để gửi lời mời. Khi họ chấp nhận, họ sẽ nhận thông báo từ bạn.'
+            actionLabel="Mời người hỗ trợ"
+            onPress={() => setIsInviteModalOpen(true)}
           />
         )}
 
@@ -232,14 +470,14 @@ export default function SettingsScreen() {
           <AccentCard
             icon="shield-checkmark"
             tone="primary"
-            title="Quyết định bằng rule engine"
+            title="Quyết định bằng bộ quy tắc"
             body="AI không quyết định thuốc có an toàn để uống hay không."
           />
           <AccentCard
             icon="notifications"
             tone="violet"
-            title="Cảnh báo caregiver"
-            body="Khi safety check là warning hoặc blocked, backend tạo notification và gửi push cho caregiver có quyền nhận cảnh báo."
+            title="Cảnh báo người hỗ trợ"
+            body="Khi kết quả kiểm tra an toàn là cảnh báo hoặc bị chặn, hệ thống phía máy chủ sẽ tạo thông báo và gửi thông báo đẩy cho người hỗ trợ có quyền nhận cảnh báo."
           />
         </View>
       </PillPalScreen>
@@ -249,7 +487,193 @@ export default function SettingsScreen() {
         settings={activeSettings}
         onClose={() => setSelectedCaregiver(null)}
       />
+      <InviteCaregiverModal
+        form={inviteForm}
+        isOpen={isInviteModalOpen}
+        isSubmitting={isCaregiverSubmitting}
+        onChange={setInviteForm}
+        onClose={() => setIsInviteModalOpen(false)}
+        onSubmit={handleInviteCaregiver}
+      />
     </>
+  );
+}
+
+function CaregiverRoleButton({
+  active,
+  icon,
+  label,
+  onPress,
+}: {
+  active: boolean;
+  icon: IconName;
+  label: string;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.caregiverRoleButton,
+        active && styles.caregiverRoleButtonActive,
+        pressed && styles.pressed,
+      ]}
+    >
+      <Ionicons name={icon} size={18} color={active ? palette.white : palette.primary} />
+      <Text
+        style={[
+          styles.caregiverRoleButtonText,
+          active && styles.caregiverRoleButtonTextActive,
+        ]}
+      >
+        {label}
+      </Text>
+    </Pressable>
+  );
+}
+
+function PatientLinkCard({
+  isPending = false,
+  isSubmitting = false,
+  link,
+  onAccept,
+  onRevoke,
+}: {
+  isPending?: boolean;
+  isSubmitting?: boolean;
+  link: PatientForCaregiver;
+  onAccept?: () => void;
+  onRevoke: () => void;
+}) {
+  const phone = link.patient.contactPhoneNumber;
+
+  return (
+    <GlassCard style={styles.caregiverCard}>
+      <View style={styles.caregiverAvatar}>
+        <Ionicons name="person" size={24} color={palette.white} />
+      </View>
+      <View style={styles.caregiverCopy}>
+        <View style={styles.caregiverTopRow}>
+          <Text style={styles.caregiverName}>{link.patient.fullName}</Text>
+          <StatusChip
+            label={formatCaregiverStatus(link.status)}
+            icon={link.status === "accepted" ? "checkmark-circle" : "time"}
+            tone={link.status === "accepted" ? "primary" : "amber"}
+          />
+        </View>
+        <Text style={styles.caregiverMeta}>
+          {link.relationship ?? "Patient"}
+          {phone ? " · " + phone : " · Chưa có số điện thoại"}
+        </Text>
+        <View style={styles.permissionRow}>
+          {isPending && onAccept ? (
+            <Pressable
+              accessibilityRole="button"
+              disabled={isSubmitting}
+              onPress={onAccept}
+              style={({ pressed }) => [
+                styles.acceptPill,
+                isSubmitting && styles.disabledPill,
+                pressed && styles.pressed,
+              ]}
+            >
+              <Ionicons name="checkmark-circle" size={16} color={palette.white} />
+              <Text style={styles.acceptPillText}>Chấp nhận</Text>
+            </Pressable>
+          ) : null}
+          <Pressable
+            accessibilityRole="button"
+            onPress={onRevoke}
+            style={({ pressed }) => [styles.revokePill, pressed && styles.pressed]}
+          >
+            <Ionicons name="close-circle" size={16} color={palette.rose} />
+            <Text style={styles.revokePillText}>Hủy</Text>
+          </Pressable>
+        </View>
+      </View>
+    </GlassCard>
+  );
+}
+
+function InviteCaregiverModal({
+  form,
+  isOpen,
+  isSubmitting,
+  onChange,
+  onClose,
+  onSubmit,
+}: {
+  form: InviteCaregiverForm;
+  isOpen: boolean;
+  isSubmitting: boolean;
+  onChange: (form: InviteCaregiverForm) => void;
+  onClose: () => void;
+  onSubmit: () => void;
+}) {
+  return (
+    <Modal visible={isOpen} transparent animationType="slide" onRequestClose={onClose}>
+      <View style={styles.modalBackdrop}>
+        <View style={styles.modalSheet}>
+          <View style={styles.modalHandle} />
+          <View style={styles.modalHeader}>
+            <View style={styles.modalTitleCopy}>
+              <Text style={styles.modalTitle}>Mời người hỗ trợ</Text>
+            </View>
+            <Pressable accessibilityRole="button" onPress={onClose} style={styles.closeButton}>
+              <Ionicons name="close" size={22} color={palette.ink} />
+            </Pressable>
+          </View>
+
+          <ScrollView
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+            contentContainerStyle={styles.modalContent}
+          >
+            <View style={styles.inviteField}>
+              <Text style={styles.inviteFieldLabel}>Id người hỗ trợ</Text>
+              <TextInput
+                autoCapitalize="none"
+                autoCorrect={false}
+                placeholder="Nhập id của người hỗ trợ"
+                placeholderTextColor={palette.muted}
+                value={form.caregiverProfileId}
+                onChangeText={(caregiverProfileId) =>
+                  onChange({ ...form, caregiverProfileId })
+                }
+                style={styles.inviteInput}
+              />
+            </View>
+            <View style={styles.inviteField}>
+              <Text style={styles.inviteFieldLabel}>Mối quan hệ</Text>
+              <TextInput
+                placeholder="Ví dụ: Con gái, Anh trai, Điều dưỡng"
+                placeholderTextColor={palette.muted}
+                value={form.relationship}
+                onChangeText={(relationship) => onChange({ ...form, relationship })}
+                style={styles.inviteInput}
+              />
+            </View>
+            <View style={styles.inviteModalActions}>
+              <AppButton
+                label="Đóng"
+                icon="close"
+                variant="light"
+                onPress={onClose}
+                style={styles.inviteModalAction}
+              />
+              <AppButton
+                disabled={isSubmitting}
+                label={isSubmitting ? "Đang gửi..." : "Gửi invite"}
+                icon="send"
+                onPress={onSubmit}
+                style={styles.inviteModalAction}
+              />
+            </View>
+          </ScrollView>
+        </View>
+      </View>
+    </Modal>
   );
 }
 
@@ -257,10 +681,12 @@ function CaregiverCard({
   caregiver,
   settings,
   onPress,
+  onRevoke,
 }: {
   caregiver: CaregiverForPatient;
   settings: ReturnType<typeof getAccessibilitySettings>;
   onPress: () => void;
+  onRevoke: () => void;
 }) {
   const isAccepted = caregiver.status === "accepted";
   const canReceiveSafetyAlert =
@@ -331,6 +757,14 @@ function CaregiverCard({
               icon="chevron-forward"
               tone="primary"
             />
+            <Pressable
+              accessibilityRole="button"
+              onPress={onRevoke}
+              style={({ pressed }) => [styles.revokePill, pressed && styles.pressed]}
+            >
+              <Ionicons name="close-circle" size={16} color={palette.rose} />
+              <Text style={styles.revokePillText}>Hủy</Text>
+            </Pressable>
           </View>
         </View>
       </GlassCard>
@@ -772,6 +1206,125 @@ function formatAccessibilityMode(mode?: string): string {
 }
 
 const styles = StyleSheet.create({
+  caregiverRoleSwitch: {
+    flexDirection: "row",
+    gap: spacing.sm,
+    padding: spacing.xs,
+    borderRadius: radius.md,
+    backgroundColor: palette.primarySoft,
+  },
+  caregiverRoleButton: {
+    flex: 1,
+    minHeight: 52,
+    borderRadius: radius.sm,
+    alignItems: "center",
+    justifyContent: "center",
+    flexDirection: "row",
+    gap: spacing.xs,
+  },
+  caregiverRoleButtonActive: {
+    backgroundColor: palette.primary,
+  },
+  caregiverRoleButtonText: {
+    color: palette.primary,
+    fontSize: typography.body,
+    fontWeight: "900",
+  },
+  caregiverRoleButtonTextActive: {
+    color: palette.white,
+  },
+  inviteActionRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    alignItems: "center",
+    gap: spacing.md,
+  },
+  inviteActionButton: {
+    flex: 1,
+    minWidth: 154,
+  },
+  inviteStatusChip: {
+    flex: 1,
+    justifyContent: "center",
+  },
+  caregiverFlowGroup: {
+    gap: spacing.lg,
+  },
+  caregiverMetricRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: spacing.md,
+  },
+  caregiverMetric: {
+    flex: 1,
+    justifyContent: "center",
+  },
+  retryButton: {
+    minWidth: 104,
+  },
+  acceptPill: {
+    minHeight: 42,
+    borderRadius: radius.sm,
+    paddingHorizontal: spacing.md,
+    alignItems: "center",
+    justifyContent: "center",
+    flexDirection: "row",
+    gap: spacing.xs,
+    backgroundColor: palette.primary,
+  },
+  acceptPillText: {
+    color: palette.white,
+    fontSize: typography.small,
+    fontWeight: "900",
+  },
+  revokePill: {
+    minHeight: 42,
+    borderRadius: radius.sm,
+    paddingHorizontal: spacing.md,
+    alignItems: "center",
+    justifyContent: "center",
+    flexDirection: "row",
+    gap: spacing.xs,
+    backgroundColor: palette.roseSoft,
+    borderWidth: 1,
+    borderColor: palette.rose,
+  },
+  revokePillText: {
+    color: palette.rose,
+    fontSize: typography.small,
+    fontWeight: "900",
+  },
+  disabledPill: {
+    opacity: 0.62,
+  },
+  inviteField: {
+    gap: spacing.xs,
+  },
+  inviteFieldLabel: {
+    color: palette.ink,
+    fontSize: typography.small,
+    fontWeight: "900",
+  },
+  inviteInput: {
+    minHeight: 54,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: palette.mutedLight,
+    paddingHorizontal: spacing.md,
+    backgroundColor: palette.surface,
+    color: palette.ink,
+    fontSize: typography.body,
+    fontWeight: "800",
+  },
+  inviteModalActions: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: spacing.md,
+  },
+  inviteModalAction: {
+    flex: 1,
+    minWidth: 136,
+  },
   profileCard: {
     flexDirection: "row",
     alignItems: "center",

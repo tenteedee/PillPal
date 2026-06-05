@@ -7,6 +7,7 @@ import { CaregiverRepository } from "../caregiver/caregiver.repository.js";
 import { DeviceRepository } from "../device/device.repository.js";
 import { IntakeRepository } from "../intake/intake.repository.js";
 import { MedicationRepository } from "../medication/medication.repository.js";
+import { MedicineLookupRepository } from "../medicine-lookup/medicine-lookup.repository.js";
 import { ExpoPushService } from "../notification/expo-push.service.js";
 import { NotificationRepository } from "../notification/notification.repository.js";
 import { NotificationService } from "../notification/notification.service.js";
@@ -83,6 +84,13 @@ export class SafetyService {
       ),
     ]);
 
+    const verifiedExternalLookup = medication.catalog_id
+      ? null
+      : await new MedicineLookupRepository().findVerifiedByUserMedicationId(
+          profile.id,
+          medication.id,
+        );
+
     const ruleOutput = evaluateSafetyRules({
       now,
       timeZone: env.APP_TIMEZONE,
@@ -92,6 +100,7 @@ export class SafetyService {
       scheduledTime: payload.scheduledTime ?? null,
       todayTakenCount: todayIntakes.length,
       lastTakenAt: lastIntake?.taken_at ?? null,
+      medicationVerifiedByExternalLookup: Boolean(verifiedExternalLookup),
     });
 
     const event = await this.safetyRepository.createSafetyCheckEvent({

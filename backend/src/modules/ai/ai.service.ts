@@ -5,6 +5,8 @@ import { ERROR_MESSAGE } from "../../shared/constants/error/error-messages.js";
 import { HTTP_STATUS } from "../../shared/constants/http/http-status.js";
 import { HttpError } from "../../shared/errors/http-error.js";
 import { MedicationRepository } from "../medication/medication.repository.js";
+import { MedicineLookupRepository } from "../medicine-lookup/medicine-lookup.repository.js";
+import { MedicineLookupService } from "../medicine-lookup/medicine-lookup.service.js";
 import type { MedicationCatalogRow } from "../medication-catalog/medication-catalog.types.js";
 import type { UserMedicationRow } from "../medication/medication.types.js";
 import { ProfileRepository } from "../profile/profile.repository.js";
@@ -104,6 +106,20 @@ export class AiService {
       aiResult: extractionResult.rawResult,
       candidates,
     });
+    const medicineLookupService = new MedicineLookupService(
+      new MedicineLookupRepository(),
+      this.profileRepository,
+      this.medicationRepository,
+    );
+    const medicineLookup = candidates.length === 0
+      ? await medicineLookupService.createPendingFromScan({
+          profileId,
+          scanAttemptId: scanAttempt.id,
+          staticId: payload.staticId,
+          imageUrl: staticFile.url,
+          extraction: extractionResult.extraction,
+        })
+      : null;
 
     return mapMedicationScanResultToDto({
       scanAttemptId: scanAttempt.id,
@@ -112,6 +128,7 @@ export class AiService {
       extractedData: extractionResult.extraction,
       candidates,
       source: extractionResult.source,
+      medicineLookup,
     });
   }
 

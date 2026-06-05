@@ -37,6 +37,7 @@ export type SafetyRuleInput = {
   scheduledTime: string | null;
   todayTakenCount: number;
   lastTakenAt: string | null;
+  medicationVerifiedByExternalLookup: boolean;
 };
 
 export type SafetyRuleOutput = {

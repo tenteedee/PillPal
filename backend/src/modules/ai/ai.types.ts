@@ -1,3 +1,4 @@
+import type { MedicineLookupDto } from "../medicine-lookup/medicine-lookup.types.js";
 export type AiScanSource = "openai" | "mock";
 
 export type MedicationScanExtraction = {
@@ -36,6 +37,7 @@ export type MedicationScanResultDto = {
   candidates: MedicationScanCandidateDto[];
   needsUserConfirmation: true;
   source: AiScanSource;
+  medicineLookup?: MedicineLookupDto | null;
 };
 
 export type MedicationScanConfirmationType =
