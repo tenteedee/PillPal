@@ -47,6 +47,57 @@ export type MedicationScanResult = {
   source: 'openai' | 'mock';
 };
 
+export type ConfirmMedicationScanRequest =
+  | {
+      type: 'existing_user_medication';
+      userMedicationId: string;
+    }
+  | {
+      type: 'catalog_medication';
+      catalogId: string;
+      saveToUserMedications?: true;
+      note?: string;
+    }
+  | {
+      type: 'manual_unverified';
+      name: string;
+      activeIngredient?: string;
+      strength?: string;
+      dosageForm?: string;
+      note?: string;
+    };
+
+export type ConfirmMedicationScanResult = {
+  scanAttemptId: string;
+  confirmationType: 'existing_user_medication' | 'catalog_medication' | 'manual_unverified';
+  verificationStatus:
+    | 'existing_user_medication'
+    | 'catalog_verified'
+    | 'manual_unverified'
+    | 'already_confirmed';
+  userMedication: {
+    id: string;
+    profileId: string;
+    catalogId: string | null;
+    name: string;
+    activeIngredient: string | null;
+    strength: string | null;
+    dosageForm: string | null;
+    note: string | null;
+    imageUrl: string | null;
+    isActive: boolean;
+    createdAt: string;
+    updatedAt: string;
+  };
+  nextAction: 'run_safety_check';
+  safetyCheckPayload: {
+    userMedicationId: string;
+    scheduleId: null;
+    scheduledTime: null;
+    source: 'scan';
+  };
+};
+
 export type ScanImageAsset = {
   uri: string;
   fileName?: string | null;
@@ -173,4 +224,18 @@ export async function scanMedicationByStaticId(
   });
 
   return readApiResponse<MedicationScanResult>(response);
+}
+
+export async function confirmMedicationScan(
+  scanAttemptId: string,
+  payload: ConfirmMedicationScanRequest,
+): Promise<ConfirmMedicationScanResult> {
+  const response = await fetch(BASE_URL + '/ai/scan-medication/' + scanAttemptId + '/confirm', {
+    method: 'POST',
+    headers: createApiHeaders({ hasJsonBody: true }),
+    body: JSON.stringify(payload),
+    credentials: 'include',
+  });
+
+  return readApiResponse<ConfirmMedicationScanResult>(response);
 }

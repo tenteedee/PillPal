@@ -15,13 +15,21 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import {
-  MedicationScanCandidate,
-  MedicationScanResult,
-  ScanImageAsset,
+  confirmMedicationScan,
   scanMedicationByStaticId,
   uploadMedicationImage,
 } from '@/src/api/scan.api';
-import { runSafetyCheck, SafetyCheckResult, SafetyReason } from '@/src/api/safety.api';
+import type {
+  MedicationScanCandidate,
+  MedicationScanResult,
+  ScanImageAsset,
+} from '@/src/api/scan.api';
+import { runSafetyCheck } from '@/src/api/safety.api';
+import type {
+  SafetyCheckRequest,
+  SafetyCheckResult,
+  SafetyReason,
+} from '@/src/api/safety.api';
 import {
   getAccessibilitySettings,
   scaleFont,
@@ -166,24 +174,17 @@ export default function ScanScreen() {
   }
 
 
-  async function runSafetyCheckForCandidate(candidate: MedicationScanCandidate | undefined) {
+  async function runSafetyCheckForScan(
+    result: MedicationScanResult,
+    candidate: MedicationScanCandidate | undefined,
+  ) {
     setSafetyErrorMessage(null);
-
-    if (!candidate?.userMedicationId) {
-      setSafetyStage('error');
-      setSafetyErrorMessage('Thuốc này chưa khớp với tủ thuốc cá nhân. Vui lòng chọn thuốc thủ công trước khi kiểm tra an toàn.');
-      return;
-    }
 
     try {
       setSafetyStage('checking');
-      const result = await runSafetyCheck({
-        userMedicationId: candidate.userMedicationId,
-        scheduleId: null,
-        scheduledTime: null,
-        source: 'scan',
-      });
-      setSafetyResult(result);
+      const safetyPayload = await resolveSafetyPayloadForScan(result, candidate);
+      const safety = await runSafetyCheck(safetyPayload);
+      setSafetyResult(safety);
       setSafetyStage('done');
     } catch (error) {
       setSafetyStage('error');
@@ -193,6 +194,53 @@ export default function ScanScreen() {
           : 'Không thể kiểm tra an toàn lúc này. Vui lòng thử lại.',
       );
     }
+  }
+
+  async function resolveSafetyPayloadForScan(
+    result: MedicationScanResult,
+    candidate: MedicationScanCandidate | undefined,
+  ): Promise<SafetyCheckRequest> {
+    if (candidate?.userMedicationId) {
+      const confirmation = await confirmMedicationScan(result.scanAttemptId, {
+        type: 'existing_user_medication',
+        userMedicationId: candidate.userMedicationId,
+      });
+
+      return confirmation.safetyCheckPayload;
+    }
+
+    if (candidate?.catalogId) {
+      const confirmation = await confirmMedicationScan(result.scanAttemptId, {
+        type: 'catalog_medication',
+        catalogId: candidate.catalogId,
+        saveToUserMedications: true,
+        note: 'Saved from a confirmed medication scan.',
+      });
+
+      return confirmation.safetyCheckPayload;
+    }
+
+    const extractedName = normalizeScanText(result.extractedData.name);
+    if (!extractedName) {
+      throw new Error('Ảnh chưa đủ rõ để xác nhận thuốc. Vui lòng chụp lại hoặc chọn thuốc thủ công.');
+    }
+
+    const confirmation = await confirmMedicationScan(result.scanAttemptId, {
+      type: 'manual_unverified',
+      name: extractedName,
+      ...optionalScanText('activeIngredient', result.extractedData.activeIngredient),
+      ...optionalScanText('strength', result.extractedData.strength),
+      ...optionalScanText('dosageForm', result.extractedData.dosageForm),
+      note: 'Created from a confirmed but unverified medication scan. Please verify with a pharmacist or caregiver.',
+    });
+
+    return confirmation.safetyCheckPayload;
+  }
+
+  function rejectScanResult() {
+    setSafetyResult(null);
+    setSafetyStage('error');
+    setSafetyErrorMessage('Vui lòng chụp lại ảnh hoặc thêm thuốc thủ công trong tab Cá nhân trước khi kiểm tra.');
   }
 
   const scanLineTranslate = scanLine.interpolate({
@@ -311,7 +359,8 @@ export default function ScanScreen() {
             safetyResult={safetyResult}
             safetyStage={safetyStage}
             safetyErrorMessage={safetyErrorMessage}
-            onRunSafetyCheck={runSafetyCheckForCandidate}
+            onRunSafetyCheck={runSafetyCheckForScan}
+            onRejectResult={rejectScanResult}
             settings={settings}
           />
         ) : (
@@ -328,6 +377,19 @@ function getStageLabel(stage: ScanStage): string {
   if (stage === 'done') return 'Đã có kết quả';
   if (stage === 'error') return 'Cần thử lại';
   return 'Sẵn sàng';
+}
+
+function normalizeScanText(value: string | null): string | undefined {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed : undefined;
+}
+
+function optionalScanText<Key extends 'activeIngredient' | 'strength' | 'dosageForm'>(
+  key: Key,
+  value: string | null,
+): Partial<Record<Key, string>> {
+  const normalized = normalizeScanText(value);
+  return normalized ? { [key]: normalized } as Partial<Record<Key, string>> : {};
 }
 
 function ActionButton({
@@ -437,13 +499,15 @@ function ScanResultCard({
   safetyStage,
   safetyErrorMessage,
   onRunSafetyCheck,
+  onRejectResult,
   settings,
 }: {
   result: MedicationScanResult;
   safetyResult: SafetyCheckResult | null;
   safetyStage: SafetyStage;
   safetyErrorMessage: string | null;
-  onRunSafetyCheck: (candidate: MedicationScanCandidate | undefined) => void;
+  onRunSafetyCheck: (result: MedicationScanResult, candidate: MedicationScanCandidate | undefined) => void;
+  onRejectResult: () => void;
   settings: ReturnType<typeof getAccessibilitySettings>;
 }) {
   const bestCandidate = result.candidates[0];
@@ -487,14 +551,14 @@ function ScanResultCard({
         <ActionButton
           label={safetyStage === 'checking' ? 'Đang kiểm tra' : 'Đúng, kiểm tra an toàn'}
           icon="checkmark-circle"
-          onPress={() => onRunSafetyCheck(bestCandidate)}
+          onPress={() => onRunSafetyCheck(result, bestCandidate)}
           disabled={safetyStage === 'checking'}
         />
         <ActionButton
           label="Chọn thuốc khác"
           icon="list"
           variant="light"
-          onPress={() => onRunSafetyCheck(undefined)}
+          onPress={onRejectResult}
           disabled={safetyStage === 'checking'}
         />
       </View>
@@ -573,9 +637,9 @@ function SafetyReasonRow({ reason }: { reason: SafetyReason }) {
   return (
     <View style={styles.reasonRow}>
       <Ionicons
-        name={reason.severity === 'blocked' ? 'stop-circle' : 'alert-circle'}
+        name={reason.severity === 'critical' ? 'stop-circle' : 'alert-circle'}
         size={18}
-        color={reason.severity === 'blocked' ? blue.danger : palette.amber}
+        color={reason.severity === 'critical' ? blue.danger : palette.amber}
       />
       <Text style={styles.reasonText}>{reason.message}</Text>
     </View>
@@ -627,7 +691,7 @@ function NoCandidate({ settings }: { settings: ReturnType<typeof getAccessibilit
   return (
     <View style={styles.noCandidateBox}>
       <Ionicons name="alert-circle-outline" size={20} color={blue.primary} />
-      <Text style={[styles.noCandidateText, { fontSize: scaleFont(typography.small, settings) }]}>Nếu kết quả chưa chính xác, bạn vui lòng chọn hình ảnh từ thiết bị.</Text>
+      <Text style={[styles.noCandidateText, { fontSize: scaleFont(typography.small, settings) }]}>Nếu thông tin đúng, PillPal sẽ lưu tạm thuốc này rồi chạy kiểm tra an toàn.</Text>
     </View>
   );
 }

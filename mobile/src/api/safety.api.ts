@@ -1,7 +1,7 @@
 import { apiFetch } from './client';
 
 export type SafetyResult = 'allowed' | 'warning' | 'blocked';
-export type SafetySeverity = 'info' | 'warning' | 'blocked';
+export type SafetySeverity = 'info' | 'warning' | 'critical';
 
 export type SafetyReason = {
   code: string;
